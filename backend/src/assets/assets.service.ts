@@ -13,7 +13,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Asset } from './asset.entity';
+import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 
@@ -66,7 +66,38 @@ export class AssetsService {
    * @returns Promise с созданным активом.
    */
   async create(createAssetDto: CreateAssetDto): Promise<Asset> {
-    const asset = this.assetsRepository.create(createAssetDto);
+    let asset: Asset;
+    if (createAssetDto.type === 'crypto') {
+      asset = new CryptoAsset();
+      asset.amount = createAssetDto.amount;
+      asset.middlePrice = createAssetDto.middlePrice;
+      asset.previousPrice = 0;
+      asset.multiple = 0;
+      asset.dailyChange = 0;
+      asset.weeklyChange = 0;
+      asset.monthlyChange = 0;
+      asset.quartChange = 0;
+      asset.yearChange = 0;
+      asset.totalChange = 0;
+      (asset as CryptoAsset).symbol = createAssetDto.symbol!;
+      (asset as CryptoAsset).fullName = createAssetDto.fullName!;
+      (asset as CryptoAsset).currentPrice = createAssetDto.currentPrice!;
+    } else {
+      asset = new NFTAsset();
+      asset.amount = createAssetDto.amount;
+      asset.middlePrice = createAssetDto.middlePrice;
+      asset.previousPrice = 0;
+      asset.multiple = 0;
+      asset.dailyChange = 0;
+      asset.weeklyChange = 0;
+      asset.monthlyChange = 0;
+      asset.quartChange = 0;
+      asset.yearChange = 0;
+      asset.totalChange = 0;
+      (asset as NFTAsset).collectionName = createAssetDto.collectionName!;
+      (asset as NFTAsset).floorPrice = createAssetDto.floorPrice!;
+      (asset as NFTAsset).traitPrice = createAssetDto.traitPrice!;
+    }
     return this.assetsRepository.save(asset);
   }
 

@@ -12,8 +12,10 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpModule } from '@nestjs/axios';
 import { AssetsService } from './assets.service';
 import { AssetsController } from './assets.controller';
+import { AssetUpdateService } from './asset-update.service';
 import { Asset } from './asset.entity';
 
 /**
@@ -28,8 +30,8 @@ import { Asset } from './asset.entity';
  * - providers: сервисы и другие провайдеры для dependency injection
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Asset])],
+  imports: [TypeOrmModule.forFeature([Asset]), HttpModule],
   controllers: [AssetsController],
-  providers: [AssetsService],
+  providers: [AssetsService, AssetUpdateService],
 })
 export class AssetsModule {}

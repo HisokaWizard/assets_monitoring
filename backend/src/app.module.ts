@@ -12,6 +12,8 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpModule } from '@nestjs/axios';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AssetsModule } from './assets/assets.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -36,6 +38,8 @@ import { User } from './auth/user.entity';
       entities: [Asset, User],
       synchronize: true, // For development; use migrations in production
     }),
+    HttpModule,
+    ScheduleModule.forRoot(),
     AssetsModule,
     AuthModule,
     NotificationsModule,
