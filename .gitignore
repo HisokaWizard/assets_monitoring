@@ -1,0 +1,6 @@
+.kilocode
+.specify
+.DS_Store
+
+/backend/node_modules
+/frontend/node_modules
