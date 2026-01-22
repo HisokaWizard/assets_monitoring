@@ -10,7 +10,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 
@@ -31,9 +31,9 @@ export class AssetUpdateService {
   ) {}
 
   /**
-   * Джоба для обновления всех активов каждый час.
+   * Джоба для обновления всех активов каждые 4 часа.
    */
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron('0 */4 * * *')
   async handleUpdateAllAssets() {
     this.logger.log('Запуск джобы обновления активов');
     await this.updateAllAssets();

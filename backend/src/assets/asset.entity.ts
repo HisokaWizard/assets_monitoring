@@ -12,7 +12,16 @@
  * @ChildEntity указывает на подсущность с собственной таблицей.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn, TableInheritance, ChildEntity } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  TableInheritance,
+  ChildEntity,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { User } from '../auth/user.entity';
 
 /**
  * Базовая сущность актива.
@@ -148,6 +157,19 @@ export class Asset {
    */
   @Column({ type: 'timestamp', nullable: true })
   yearTimestamp: Date;
+
+  /**
+   * ID пользователя, которому принадлежит актив.
+   */
+  @Column()
+  userId: number;
+
+  /**
+   * Связь с пользователем.
+   */
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }
 
 /**
