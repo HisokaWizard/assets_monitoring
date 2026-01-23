@@ -10,9 +10,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Cron } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
+import { HistoricalPrice } from './historical-price.entity';
+import { User } from '../auth/user.entity';
+import { NotificationSettings } from '../notifications/notification-settings.entity';
 
 /**
  * Сервис для обновления активов.
@@ -28,16 +30,13 @@ export class AssetUpdateService {
     private readonly httpService: HttpService,
     @InjectRepository(Asset)
     private readonly assetsRepository: Repository<Asset>,
+    @InjectRepository(HistoricalPrice)
+    private readonly historicalPriceRepository: Repository<HistoricalPrice>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(NotificationSettings)
+    private readonly notificationSettingsRepository: Repository<NotificationSettings>,
   ) {}
-
-  /**
-   * Джоба для обновления всех активов каждые 4 часа.
-   */
-  @Cron('0 */4 * * *')
-  async handleUpdateAllAssets() {
-    this.logger.log('Запуск джобы обновления активов');
-    await this.updateAllAssets();
-  }
 
   /**
    * Обновить все активы.
@@ -59,6 +58,66 @@ export class AssetUpdateService {
   }
 
   /**
+   * Обновить активы для пользователей по их настройкам.
+   */
+  async updateAssetsForUsers(): Promise<number[]> {
+    const updatedAssetIds: number[] = [];
+    const now = new Date();
+
+    // Получить все настройки уведомлений с пользователями
+    const settings = await this.notificationSettingsRepository.find({
+      where: { enabled: true },
+      relations: ['user'],
+    });
+
+    // Группировать по пользователям
+    const userSettingsMap = new Map<number, NotificationSettings[]>();
+    for (const setting of settings) {
+      if (!userSettingsMap.has(setting.userId)) {
+        userSettingsMap.set(setting.userId, []);
+      }
+      userSettingsMap.get(setting.userId)!.push(setting);
+    }
+
+    for (const [userId, userSettings] of userSettingsMap) {
+      const user = userSettings[0].user; // Все настройки имеют одного пользователя
+
+      // Определить интервал: максимальный из настроек или 4 часа по умолчанию
+      const intervalHours =
+        userSettings.length > 0 ? Math.max(...userSettings.map((s) => s.intervalHours)) : 4;
+
+      // Проверить, прошло ли время с последнего обновления
+      const shouldUpdate =
+        !user.lastUpdated ||
+        now.getTime() - user.lastUpdated.getTime() >= intervalHours * 60 * 60 * 1000;
+
+      if (shouldUpdate) {
+        // Получить активы пользователя
+        const assets = await this.assetsRepository.find({ where: { userId } });
+
+        for (const asset of assets) {
+          try {
+            if (asset instanceof CryptoAsset) {
+              await this.updateCryptoAsset(asset);
+            } else if (asset instanceof NFTAsset) {
+              await this.updateNFTAsset(asset);
+            }
+            updatedAssetIds.push(asset.id);
+          } catch (error) {
+            this.logger.error(`Ошибка обновления актива ${asset.id}: ${error.message}`);
+          }
+        }
+
+        // Обновить lastUpdated пользователя
+        user.lastUpdated = now;
+        await this.userRepository.save(user);
+      }
+    }
+
+    return updatedAssetIds;
+  }
+
+  /**
    * Обновить криптоактив.
    */
   private async updateCryptoAsset(asset: CryptoAsset): Promise<void> {
@@ -66,6 +125,7 @@ export class AssetUpdateService {
     if (currentPrice) {
       asset.currentPrice = currentPrice;
       await this.calculateChanges(asset);
+      await this.saveHistoricalPrice(asset.id, currentPrice, 'CoinMarketCap');
       await this.assetsRepository.save(asset);
     }
   }
@@ -78,6 +138,7 @@ export class AssetUpdateService {
     if (floorPrice) {
       asset.floorPrice = floorPrice;
       await this.calculateChanges(asset);
+      await this.saveHistoricalPrice(asset.id, floorPrice, 'OpenSea');
       await this.assetsRepository.save(asset);
     }
   }
@@ -236,5 +297,22 @@ export class AssetUpdateService {
   private calculateChange(oldPrice: number, newPrice: number): number {
     if (oldPrice === 0) return 0;
     return ((newPrice - oldPrice) / oldPrice) * 100;
+  }
+
+  /**
+   * Сохранить историческую цену.
+   */
+  private async saveHistoricalPrice(assetId: number, price: number, source: string): Promise<void> {
+    try {
+      const historicalPrice = this.historicalPriceRepository.create({
+        assetId,
+        price,
+        timestamp: new Date(),
+        source,
+      });
+      await this.historicalPriceRepository.save(historicalPrice);
+    } catch (error) {
+      this.logger.error(`Error saving historical price for asset ${assetId}: ${error.message}`);
+    }
   }
 }

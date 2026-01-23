@@ -51,6 +51,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * @returns Promise с объектом пользователя (без пароля для безопасности).
    */
   async validate(payload: any): Promise<User> {
-    return { id: payload.sub, email: payload.email, password: '', role: payload.role };
+    return {
+      id: payload.sub,
+      email: payload.email,
+      password: '',
+      role: payload.role,
+      lastUpdated: null,
+    };
   }
 }

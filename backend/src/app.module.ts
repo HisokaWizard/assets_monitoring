@@ -18,7 +18,10 @@ import { AssetsModule } from './assets/assets.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { Asset } from './assets/asset.entity';
+import { HistoricalPrice } from './assets/historical-price.entity';
 import { User } from './auth/user.entity';
+import { NotificationSettings } from './notifications/notification-settings.entity';
+import { NotificationLog } from './notifications/notification-log.entity';
 
 /**
  * Корневой модуль приложения.
@@ -35,7 +38,7 @@ import { User } from './auth/user.entity';
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: 'database.sqlite',
-      entities: [Asset, User],
+      entities: [Asset, HistoricalPrice, User, NotificationSettings, NotificationLog],
       synchronize: true, // For development; use migrations in production
     }),
     HttpModule,

@@ -17,6 +17,9 @@ import { AssetsService } from './assets.service';
 import { AssetsController } from './assets.controller';
 import { AssetUpdateService } from './asset-update.service';
 import { Asset } from './asset.entity';
+import { HistoricalPrice } from './historical-price.entity';
+import { User } from '../auth/user.entity';
+import { NotificationSettings } from '../notifications/notification-settings.entity';
 
 /**
  * Модуль активов.
@@ -30,8 +33,12 @@ import { Asset } from './asset.entity';
  * - providers: сервисы и другие провайдеры для dependency injection
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Asset]), HttpModule],
+  imports: [
+    TypeOrmModule.forFeature([Asset, HistoricalPrice, User, NotificationSettings]),
+    HttpModule,
+  ],
   controllers: [AssetsController],
   providers: [AssetsService, AssetUpdateService],
+  exports: [AssetUpdateService],
 })
 export class AssetsModule {}

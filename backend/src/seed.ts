@@ -9,6 +9,7 @@ import { createConnection } from 'typeorm';
 import { User } from './auth/user.entity';
 import { Asset, CryptoAsset, NFTAsset } from './assets/asset.entity';
 import * as bcrypt from 'bcrypt';
+import { NotificationSettings } from './notifications/notification-settings.entity';
 
 /**
  * Функция для заполнения базы данных тестовыми данными.
@@ -18,13 +19,14 @@ async function seed() {
   const connection = await createConnection({
     type: 'sqlite',
     database: 'database.sqlite',
-    entities: [User, Asset, CryptoAsset, NFTAsset],
+    entities: [User, Asset, CryptoAsset, NFTAsset, NotificationSettings],
     synchronize: true,
   });
 
   const userRepo = connection.getRepository(User);
   const cryptoRepo = connection.getRepository(CryptoAsset);
   const nftRepo = connection.getRepository(NFTAsset);
+  const notificationRepo = connection.getRepository(NotificationSettings);
 
   // Создание администратора
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -122,6 +124,27 @@ async function seed() {
       traitPrice: 35000,
     });
     await nftRepo.save(punks);
+
+    // Создание настроек уведомлений
+    const cryptoSettings = notificationRepo.create({
+      userId: u.id,
+      assetType: 'crypto',
+      enabled: true,
+      thresholdPercent: 5,
+      intervalHours: 4,
+      updateIntervalHours: 4,
+    });
+    await notificationRepo.save(cryptoSettings);
+
+    const nftSettings = notificationRepo.create({
+      userId: u.id,
+      assetType: 'nft',
+      enabled: true,
+      thresholdPercent: 10,
+      intervalHours: 6,
+      updateIntervalHours: 4,
+    });
+    await notificationRepo.save(nftSettings);
   }
 
   await connection.close();

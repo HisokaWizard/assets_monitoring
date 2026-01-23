@@ -52,4 +52,10 @@ export class User {
    */
   @Column()
   role: string; // e.g., user, admin
+
+  /**
+   * Время последнего обновления активов.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  lastUpdated: Date;
 }

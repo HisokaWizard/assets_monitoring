@@ -7,9 +7,12 @@
  * @Controller('notifications') создает префикс '/notifications' для маршрутов.
  */
 
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
+import { CreateNotificationSettingsDto } from './dto/create-notification-settings.dto';
+import { UpdateNotificationSettingsDto } from './dto/update-notification-settings.dto';
+import { GenerateReportDto } from './dto/generate-report.dto';
 
 /**
  * Контроллер для операций с уведомлениями.
@@ -21,23 +24,96 @@ import { SendNotificationDto } from './dto/send-notification.dto';
  */
 @Controller('notifications')
 export class NotificationsController {
-  /**
-   * Конструктор контроллера.
-   *
-   * @param notificationsService Сервис для обработки уведомлений.
-   */
   constructor(private readonly notificationsService: NotificationsService) {}
 
   /**
-   * Отправка уведомления.
-   *
-   * @param sendNotificationDto Данные уведомления из тела запроса.
-   * @returns Результат отправки уведомления.
-   * @Post('send') обрабатывает POST запросы на '/notifications/send'.
-   * @Body извлекает данные из тела HTTP запроса.
+   * Отправка уведомления (для совместимости).
    */
   @Post('send')
   send(@Body() sendNotificationDto: SendNotificationDto) {
     return this.notificationsService.sendNotification(sendNotificationDto);
+  }
+
+  /**
+   * Получить настройки уведомлений пользователя.
+   */
+  @Get('settings')
+  // @UseGuards(JwtAuthGuard)
+  getSettings(/* @GetUser() user: User */) {
+    // Для примера, используем userId = 1
+    const userId = 1;
+    return this.notificationsService.getUserSettings(userId);
+  }
+
+  /**
+   * Создать настройку уведомлений.
+   */
+  @Post('settings')
+  // @UseGuards(JwtAuthGuard)
+  createSettings(/* @GetUser() user: User, */ @Body() dto: CreateNotificationSettingsDto) {
+    const userId = 1;
+    return this.notificationsService.createSettings(userId, dto);
+  }
+
+  /**
+   * Обновить настройку уведомлений.
+   */
+  @Put('settings/:id')
+  // @UseGuards(JwtAuthGuard)
+  updateSettings(
+    /* @GetUser() user: User, */
+    @Param('id') id: number,
+    @Body() dto: UpdateNotificationSettingsDto,
+  ) {
+    const userId = 1;
+    return this.notificationsService.updateSettings(+id, userId, dto);
+  }
+
+  /**
+   * Удалить настройку уведомлений.
+   */
+  @Delete('settings/:id')
+  // @UseGuards(JwtAuthGuard)
+  deleteSettings(/* @GetUser() user: User, */ @Param('id') id: number) {
+    const userId = 1;
+    return this.notificationsService.deleteSettings(+id, userId);
+  }
+
+  /**
+   * Получить исторические цены актива.
+   */
+  @Get('assets/:id/history')
+  // @UseGuards(JwtAuthGuard)
+  getAssetHistory(@Param('id') assetId: number, @Query('limit') limit?: number) {
+    return this.notificationsService.getAssetHistory(+assetId, limit ? +limit : 100);
+  }
+
+  /**
+   * Сгенерировать отчет.
+   */
+  @Post('reports/generate')
+  // @UseGuards(JwtAuthGuard)
+  generateReport(/* @GetUser() user: User, */ @Body() dto: GenerateReportDto) {
+    const userId = 1;
+    return this.notificationsService.generateReport(userId, dto);
+  }
+
+  /**
+   * Ручной запуск обновления активов и уведомлений.
+   */
+  @Post('assets/update')
+  // @UseGuards(JwtAuthGuard)
+  triggerAssetUpdatesAndNotifications() {
+    return this.notificationsService.triggerAssetUpdatesAndNotifications();
+  }
+
+  /**
+   * Получить логи уведомлений.
+   */
+  @Get('logs')
+  // @UseGuards(JwtAuthGuard)
+  getLogs(/* @GetUser() user: User, */ @Query('limit') limit?: number) {
+    const userId = 1;
+    return this.notificationsService.getNotificationLogs(userId, limit ? +limit : 50);
   }
 }
