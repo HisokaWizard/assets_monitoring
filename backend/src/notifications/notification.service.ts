@@ -174,61 +174,100 @@ export class NotificationService {
 
     const user = assets[0].user;
 
-    // Определяем порог для отчета в зависимости от периода
-    const threshold = this.getPeriodThreshold(period);
+    const reportData = [];
 
-    // Находим активы с значительными изменениями
-    const significantChanges = assets.filter((asset) => {
-      const change = this.getChangeForPeriod(asset, period);
-      return Math.abs(change || 0) >= threshold;
-    });
+    for (const asset of assets) {
+      const lastPrice = this.getLastPriceForPeriod(asset, period);
+      const currentPrice = this.getCurrentPrice(asset);
 
-    if (significantChanges.length === 0) {
-      this.logger.log(`No significant ${period} changes for user ${userId}, skipping report`);
-      return;
+      let change = 0;
+      if (lastPrice && lastPrice !== 0) {
+        change = ((currentPrice - lastPrice) / lastPrice) * 100;
+      }
+
+      // Обновляем last*Price на текущую цену
+      this.setLastPriceForPeriod(asset, period, currentPrice);
+
+      const name = asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
+      const totalValue = asset.amount * currentPrice;
+
+      reportData.push({
+        name,
+        type: asset instanceof CryptoAsset ? 'Crypto' : 'NFT',
+        currentPrice,
+        change,
+        totalValue,
+      });
     }
 
-    const reportData = this.buildReportData(significantChanges);
+    // Сохраняем обновленные активы
+    await this.assetsRepository.save(assets);
+
     await this.sendNotification('report', user, { period, reportData });
   }
 
   /**
-   * Получение порога для периода.
+   * Получение последней цены для периода.
    *
+   * @param asset Актив
    * @param period Период
-   * @returns Порог изменения в процентах
+   * @returns Последняя цена
    */
-  private getPeriodThreshold(period: string): number {
+  private getLastPriceForPeriod(asset: Asset, period: string): number | null {
     switch (period) {
       case 'daily':
-        return 5;
+        return asset.dailyPrice;
       case 'weekly':
-        return 10;
+        return asset.weeklyPrice;
       case 'monthly':
-        return 20;
+        return asset.monthlyPrice;
+      case 'quarterly':
+        return asset.quartPrice;
+      case 'yearly':
+        return asset.yearPrice;
       default:
-        return 5;
+        return asset.dailyPrice;
     }
   }
 
   /**
-   * Получение изменения цены для периода.
+   * Установка последней цены для периода.
    *
    * @param asset Актив
    * @param period Период
-   * @returns Процентное изменение
+   * @param price Цена
    */
-  private getChangeForPeriod(asset: Asset, period: string): number | null {
+  private setLastPriceForPeriod(asset: Asset, period: string, price: number): void {
     switch (period) {
       case 'daily':
-        return asset.dailyChange;
+        asset.dailyPrice = price;
+        break;
       case 'weekly':
-        return asset.weeklyChange;
+        asset.weeklyPrice = price;
+        break;
       case 'monthly':
-        return asset.monthlyChange;
+        asset.monthlyPrice = price;
+        break;
+      case 'quarterly':
+        asset.quartPrice = price;
+        break;
+      case 'yearly':
+        asset.yearPrice = price;
+        break;
       default:
-        return asset.dailyChange;
+        asset.dailyPrice = price;
+        break;
     }
+  }
+
+  /**
+   * Получение текущей цены актива.
+   *
+   * @param asset Актив
+   * @returns Текущая цена
+   */
+  private getCurrentPrice(asset: Asset): number {
+    return asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
   }
 
   /**
@@ -276,47 +315,17 @@ export class NotificationService {
   }
 
   /**
-   * Вычисление изменения цены актива.
+   * Вычисление изменения цены актива за интервал обновлений.
    *
    * @param asset Актив
    * @returns Процентное изменение
    */
   private calculatePriceChange(asset: Asset): number {
-    if (!asset.middlePrice || asset.middlePrice === 0) return 0;
+    if (!asset.previousPrice || asset.previousPrice === 0) return 0;
 
     const currentPrice =
       asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-    return ((currentPrice - asset.middlePrice) / asset.middlePrice) * 100;
-  }
-
-  /**
-   * Построение данных отчета.
-   *
-   * @param assets Активы с изменениями
-   * @returns Данные отчета
-   */
-  private buildReportData(assets: Asset[]): Array<{
-    name: string;
-    type: string;
-    currentPrice: number;
-    change: number;
-    totalValue: number;
-  }> {
-    return assets.map((asset) => {
-      const name = asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
-      const currentPrice =
-        asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-      const totalValue = asset.amount * currentPrice;
-      const change = asset.dailyChange || 0; // Для простоты используем dailyChange
-
-      return {
-        name,
-        type: asset instanceof CryptoAsset ? 'Crypto' : 'NFT',
-        currentPrice,
-        change,
-        totalValue,
-      };
-    });
+    return ((currentPrice - asset.previousPrice) / asset.previousPrice) * 100;
   }
 
   /**
@@ -357,7 +366,7 @@ export class NotificationService {
   ): string {
     let message = `Portfolio ${
       period.charAt(0).toUpperCase() + period.slice(1)
-    } Report - Assets with Significant Changes:\n\n`;
+    } Report - All Assets:\n\n`;
 
     let totalPortfolioValue = 0;
 
@@ -370,7 +379,7 @@ export class NotificationService {
       totalPortfolioValue += item.totalValue;
     }
 
-    message += `Total Portfolio Value (significant changes): $${totalPortfolioValue.toFixed(
+    message += `Total Portfolio Value: $${totalPortfolioValue.toFixed(
       2,
     )}\n\n`;
     message += 'Please review your investments and consider your strategy.';

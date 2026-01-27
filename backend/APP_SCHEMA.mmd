@@ -1,0 +1,76 @@
+graph TD
+subgraph "Внешние сервисы"
+CMC[CoinMarketCap API]
+OS[OpenSea API]
+SMTP[Yandex SMTP]
+end
+
+    subgraph "NestJS Application"
+        subgraph "Modules"
+            AM[AssetsModule]
+            AuthM[AuthModule]
+            NM[NotificationsModule]
+        end
+
+        subgraph "Services"
+            SS[SchedulerService]
+            AUS[AssetUpdateService]
+            NS[NotificationService]
+            AS[AssetsService]
+            AuthS[AuthService]
+            ES[EmailService]
+        end
+
+        subgraph "Controllers"
+            AC[AssetsController]
+            AuthC[AuthController]
+            NC[NotificationsController]
+        end
+    end
+
+    subgraph "Database (SQLite)"
+        subgraph "Tables"
+            U[User<br/>id, email, password, role, lastUpdated]
+            A[Asset<br/>id, amount, middlePrice, userId, type<br/>+ CryptoAsset: symbol, currentPrice<br/>+ NFTAsset: collectionName, floorPrice]
+            HP[HistoricalPrice<br/>assetId, price, timestamp, source]
+            NS[NotificationSettings<br/>userId, assetType, enabled, thresholdPercent,<br/>intervalHours, lastNotified]
+            NL[NotificationLog<br/>userId, type, subject, message, sentAt, status]
+        end
+    end
+
+    %% Поток работы
+    SS -->|Каждые 4 часа| AUS
+    AUS -->|Обновление цен| CMC
+    AUS -->|Обновление floor price| OS
+    AUS -->|Сохранение истории| HP
+    AUS -->|После обновления| NS
+    NS -->|Проверка алертов| NS
+    NS -->|Отправка email| ES
+    ES -->|SMTP| SMTP
+    NS -->|Лог уведомлений| NL
+
+    SS -->|Еженедельно| NS
+    SS -->|Ежемесячно| NS
+    NS -->|Генерация отчетов| NS
+
+    %% Связи с контроллерами
+    AC --> AS
+    AC --> AUS
+    AuthC --> AuthS
+    NC --> NS
+
+    %% Связи с БД
+    AS --> A
+    AUS --> A
+    AUS --> HP
+    NS --> NS
+    NS --> NL
+    AuthS --> U
+
+    %% Связи между модулями
+    AM --> AUS
+    AM --> AS
+    AuthM --> AuthS
+    NM --> SS
+    NM --> NS
+    NM --> ES
