@@ -242,8 +242,6 @@ graph TD
 - `generatePeriodicReports(period)`: Генерирует отчеты по периоду для всех пользователей с активами
 - `sendNotification(type, user, data)`: Унифицированная отправка уведомлений (алерты или отчеты) через email
 - `calculatePriceChange(asset)`: Вычисляет изменение цены актива относительно предыдущей цены
-- `getPeriodThreshold(period)`: Возвращает порог изменения для периода отчета (5% для дня, 10% для недели, 20% для месяца)
-- `getChangeForPeriod(asset, period)`: Получает изменение цены актива для указанного периода
 - `buildReportData(assets)`: Формирует данные отчета с информацией об активах, ценах и изменениях
 - `buildAlertMessage(alerts)`: Строит текст email-сообщения для алертов
 - `buildReportMessage(reportData, period)`: Строит текст email-сообщения для отчетов

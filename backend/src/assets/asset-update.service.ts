@@ -39,25 +39,6 @@ export class AssetUpdateService {
   ) {}
 
   /**
-   * Обновить все активы.
-   */
-  async updateAllAssets(): Promise<void> {
-    const assets = await this.assetsRepository.find();
-
-    for (const asset of assets) {
-      try {
-        if (asset instanceof CryptoAsset) {
-          await this.updateCryptoAsset(asset);
-        } else if (asset instanceof NFTAsset) {
-          await this.updateNFTAsset(asset);
-        }
-      } catch (error) {
-        this.logger.error(`Ошибка обновления актива ${asset.id}: ${error.message}`);
-      }
-    }
-  }
-
-  /**
    * Обновить активы для пользователей по их настройкам.
    */
   async updateAssetsForUsers(): Promise<number[]> {
