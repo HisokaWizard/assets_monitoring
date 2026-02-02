@@ -58,7 +58,7 @@ export class NotificationLog {
   /**
    * Время отправки.
    */
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   sentAt: Date;
 
   /**

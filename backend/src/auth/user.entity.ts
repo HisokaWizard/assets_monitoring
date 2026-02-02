@@ -56,6 +56,6 @@ export class User {
   /**
    * Время последнего обновления активов.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastUpdated: Date;
 }

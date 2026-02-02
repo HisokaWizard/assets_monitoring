@@ -107,7 +107,7 @@ export class Asset {
   /**
    * Временная метка за день.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   dailyTimestamp: Date;
 
   /**
@@ -119,7 +119,7 @@ export class Asset {
   /**
    * Временная метка за неделю.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   weeklyTimestamp: Date;
 
   /**
@@ -131,7 +131,7 @@ export class Asset {
   /**
    * Временная метка за месяц.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   monthlyTimestamp: Date;
 
   /**
@@ -143,7 +143,7 @@ export class Asset {
   /**
    * Временная метка за квартал.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   quartTimestamp: Date;
 
   /**
@@ -155,7 +155,7 @@ export class Asset {
   /**
    * Временная метка за год.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   yearTimestamp: Date;
 
   /**

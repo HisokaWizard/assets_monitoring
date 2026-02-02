@@ -72,6 +72,6 @@ export class NotificationSettings {
   /**
    * Время последнего уведомления.
    */
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastNotified: Date;
 }

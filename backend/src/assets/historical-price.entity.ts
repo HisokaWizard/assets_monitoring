@@ -46,7 +46,7 @@ export class HistoricalPrice {
   /**
    * Временная метка цены.
    */
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   timestamp: Date;
 
   /**
