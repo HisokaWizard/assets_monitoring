@@ -1,14 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+import { User } from './user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
-import { User } from './user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-
-jest.mock('bcrypt');
+import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -18,32 +16,28 @@ describe('AuthService', () => {
   const mockUser: User = {
     id: 1,
     email: 'test@example.com',
-    password: 'hashedPassword',
+    password: 'hashedPassword123',
     role: 'user',
     lastUpdated: new Date(),
   };
 
   beforeEach(async () => {
-    const mockUsersRepository = {
-      create: jest.fn(),
-      save: jest.fn(),
-      findOneBy: jest.fn(),
-    };
-
-    const mockJwtService = {
-      sign: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
           provide: getRepositoryToken(User),
-          useValue: mockUsersRepository,
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+            findOneBy: jest.fn(),
+          },
         },
         {
           provide: JwtService,
-          useValue: mockJwtService,
+          useValue: {
+            sign: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -58,61 +52,66 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
+    const registerDto: RegisterDto = {
+      email: 'test@example.com',
+      password: 'password123',
+      role: 'user',
+    };
+
     it('should successfully register a new user', async () => {
-      const registerDto: RegisterDto = {
-        email: 'newuser@example.com',
-        password: 'password123',
-        role: 'user',
-      };
-
-      const hashedPassword = 'hashedPassword';
-      const createdUser = {
-        ...mockUser,
-        id: undefined,
-        email: registerDto.email,
-        password: hashedPassword,
-      };
-
-      (bcrypt.hash as jest.Mock).mockResolvedValue(hashedPassword);
-      usersRepository.create.mockReturnValue(createdUser as User);
-      usersRepository.save.mockResolvedValue({ ...createdUser, id: 2 } as User);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedPassword123' as never);
+      usersRepository.create.mockReturnValue(mockUser);
+      usersRepository.save.mockResolvedValue(mockUser);
 
       const result = await service.register(registerDto);
 
       expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(usersRepository.create).toHaveBeenCalledWith({
-        ...registerDto,
-        password: hashedPassword,
+        email: registerDto.email,
+        password: 'hashedPassword123',
+        role: registerDto.role,
       });
-      expect(usersRepository.save).toHaveBeenCalled();
-      expect(result).toBeDefined();
-      expect(result.email).toBe(registerDto.email);
+      expect(usersRepository.save).toHaveBeenCalledWith(mockUser);
+      expect(result).toEqual(mockUser);
     });
 
-    it('should throw error when email already exists', async () => {
-      const registerDto: RegisterDto = {
-        email: 'existing@example.com',
-        password: 'password123',
-        role: 'user',
-      };
+    it('should hash the password before saving', async () => {
+      const hashedPassword = 'hashedPassword123';
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue(hashedPassword as never);
+      usersRepository.create.mockReturnValue({ ...mockUser, password: hashedPassword });
+      usersRepository.save.mockResolvedValue({ ...mockUser, password: hashedPassword });
 
-      usersRepository.save.mockRejectedValue(new Error('Duplicate entry'));
+      await service.register(registerDto);
 
-      await expect(service.register(registerDto)).rejects.toThrow('Duplicate entry');
+      expect(bcrypt.hash).toHaveBeenCalledTimes(1);
+      expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
+      expect(usersRepository.create).toHaveBeenCalledWith({
+        email: registerDto.email,
+        password: hashedPassword,
+        role: registerDto.role,
+      });
+    });
+
+    it('should throw an error if email already exists', async () => {
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedPassword123' as never);
+      usersRepository.create.mockReturnValue(mockUser);
+      usersRepository.save.mockRejectedValue(new Error('Duplicate email'));
+
+      await expect(service.register(registerDto)).rejects.toThrow('Duplicate email');
     });
   });
 
   describe('login', () => {
-    it('should successfully login with correct credentials', async () => {
-      const loginDto: LoginDto = {
-        email: 'test@example.com',
-        password: 'password123',
-      };
+    const loginDto: LoginDto = {
+      email: 'test@example.com',
+      password: 'password123',
+    };
 
-      const hashedPassword = 'hashedPassword';
+    it('should successfully login with valid credentials', async () => {
+      const token = 'jwt_token_123';
       usersRepository.findOneBy.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('jwt-token');
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jwtService.sign.mockReturnValue(token);
 
       const result = await service.login(loginDto);
 
@@ -123,30 +122,52 @@ describe('AuthService', () => {
         sub: mockUser.id,
         role: mockUser.role,
       });
-      expect(result).toEqual({ access_token: 'jwt-token' });
+      expect(result).toEqual({ access_token: token });
     });
 
-    it('should throw error with invalid password', async () => {
-      const loginDto: LoginDto = {
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      };
-
-      usersRepository.findOneBy.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-
-      await expect(service.login(loginDto)).rejects.toThrow('Invalid credentials');
-    });
-
-    it('should throw error with non-existent email', async () => {
-      const loginDto: LoginDto = {
-        email: 'nonexistent@example.com',
-        password: 'password123',
-      };
-
+    it('should throw error with invalid email', async () => {
       usersRepository.findOneBy.mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow('Invalid credentials');
+      expect(usersRepository.findOneBy).toHaveBeenCalledWith({ email: loginDto.email });
+    });
+
+    it('should throw error with invalid password', async () => {
+      usersRepository.findOneBy.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+
+      await expect(service.login(loginDto)).rejects.toThrow('Invalid credentials');
+      expect(bcrypt.compare).toHaveBeenCalledWith(loginDto.password, mockUser.password);
+    });
+
+    it('should generate JWT token with correct payload', async () => {
+      const token = 'jwt_token_123';
+      usersRepository.findOneBy.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jwtService.sign.mockReturnValue(token);
+
+      await service.login(loginDto);
+
+      expect(jwtService.sign).toHaveBeenCalledWith({
+        email: mockUser.email,
+        sub: mockUser.id,
+        role: mockUser.role,
+      });
+    });
+
+    it('should not expose password in token payload', async () => {
+      const token = 'jwt_token_123';
+      usersRepository.findOneBy.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jwtService.sign.mockReturnValue(token);
+
+      await service.login(loginDto);
+
+      const signPayload = jwtService.sign.mock.calls[0][0];
+      expect(signPayload).not.toHaveProperty('password');
+      expect(signPayload).toHaveProperty('email');
+      expect(signPayload).toHaveProperty('sub');
+      expect(signPayload).toHaveProperty('role');
     });
   });
 });

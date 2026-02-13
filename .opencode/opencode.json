@@ -81,7 +81,12 @@
       "Write JSDoc for all public methods",
       "Use strict TypeScript types",
       "Follow existing code style (2 spaces, single quotes)",
-      "Run tests before committing changes"
+      "Run tests before committing changes",
+      "Every task MUST start with creating .opencode/features/{backend|frontend}/feat_{N}/ structure",
+      "Use contextDocs tool to gather architecture context before decomposition",
+      "Create feature_{N}.md with 3-5 atomic sub-tasks",
+      "Create STATUS.md and update it when task state changes",
+      "Maximum 5 sub-tasks per feature, sub-tasks cannot be changed during work"
     ],
     "modeSpecific": {
       "plan": [
