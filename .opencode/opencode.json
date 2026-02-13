@@ -1,0 +1,99 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "name": "assets-monitoring-opencode",
+  "version": "1.0.0",
+  "model": "opencode/opencode-free",
+  "description": "OpenCode environment for Assets Monitoring project",
+  
+  "permission": {
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "bash": "ask",
+    "task": "ask",
+    "webfetch": "allow",
+    "websearch": "allow"
+  },
+  
+  "agent": {
+    "build": {
+      "id": "build",
+      "name": "Build",
+      "mode": "build",
+      "description": "Full-access agent for development work",
+      "permissions": {
+        "read": "allow",
+        "write": "allow",
+        "edit": "allow",
+        "bash": "ask",
+        "task": "allow"
+      }
+    },
+    "plan": {
+      "id": "plan",
+      "name": "Plan",
+      "mode": "plan",
+      "description": "Read-only agent for analysis",
+      "permissions": {
+        "read": "allow",
+        "write": "deny",
+        "edit": "deny",
+        "bash": "ask",
+        "task": "deny"
+      }
+    },
+    "architect": {
+      "id": "architect",
+      "name": "Architect",
+      "mode": "plan",
+      "description": "Analyzes architecture and provides recommendations",
+      "permissions": {
+        "read": "allow",
+        "write": "deny",
+        "edit": "deny",
+        "bash": "deny",
+        "task": "deny"
+      }
+    },
+    "reviewer": {
+      "id": "reviewer",
+      "name": "Code Reviewer",
+      "mode": "plan",
+      "description": "Reviews code quality and finds issues",
+      "permissions": {
+        "read": "allow",
+        "write": "deny",
+        "edit": "deny",
+        "bash": "ask",
+        "task": "deny"
+      }
+    }
+  },
+  
+  "mcp": {},
+  
+  "plugin": [],
+  
+  "rules": {
+    "alwaysApply": [
+      "Follow TDD approach: Red → Green → Refactor",
+      "Write JSDoc for all public methods",
+      "Use strict TypeScript types",
+      "Follow existing code style (2 spaces, single quotes)",
+      "Run tests before committing changes"
+    ],
+    "modeSpecific": {
+      "plan": [
+        "Analyze thoroughly before making recommendations",
+        "Ask clarifying questions when requirements are unclear",
+        "Consider edge cases and potential issues"
+      ],
+      "build": [
+        "Create tests first (TDD)",
+        "Implement minimal code to pass tests",
+        "Refactor after tests pass",
+        "Update documentation"
+      ]
+    }
+  }
+}

@@ -120,3 +120,219 @@ npm test
 **Важно:** Рефакторинг проводится только при наличии зелёных тестов.
 
 **Лимит:** Не более 3 итераций рефакторинга, чтобы избежать over-engineering. После каждой итерации тесты должны оставаться зелёными.
+
+---
+
+# OpenCode Environment
+
+## Структура
+
+```
+.opencode/
+├── opencode.json          # Конфигурация агентов и прав
+├── AGENTS.md             # Документация агентов
+├── tools/                # Кастомные инструменты
+│   ├── cryptoPrice.ts    # Пример: получение цен крипто
+│   └── ...
+├── skills/               # Agent Skills
+│   ├── backend-dev/      # Backend разработка
+│   │   └── SKILL.md
+│   ├── frontend-dev/     # Frontend разработка
+│   │   └── SKILL.md
+│   └── tdd-workflow/     # TDD подход
+│       └── SKILL.md
+├── agents/               # Кастомные агенты
+│   └── (agent configs)
+└── plugins/              # Плагины
+    └── (plugin files)
+```
+
+## Агенты
+
+### Встроенные
+
+- **Build** — режим разработки, полный доступ
+- **Plan** — режим анализа, только чтение
+
+### Кастомные
+
+- **Architect** — анализ архитектуры, только чтение
+- **Reviewer** — code review, поиск багов
+
+## Связь Tools ↔ Skills ↔ Agents
+
+```mermaid
+graph TB
+    subgraph "Tools"
+        T1[cryptoPrice]
+        T2[databaseQuery]
+        T3[apiClient]
+    end
+
+    subgraph "Skills"
+        S1[backend-dev]
+        S2[frontend-dev]
+        S3[tdd-workflow]
+    end
+
+    subgraph "Agents"
+        A1[Build]
+        A2[Plan]
+        A3[Architect]
+    end
+
+    T1 -->|использует| A1
+    T2 -->|использует| A1
+    S1 -->|обучает| A1
+    S2 -->|обучает| A2
+    S3 -->|обучает| A3
+```
+
+**Как это работает:**
+
+1. **Tools** предоставляют функциональность (читать файлы, вызывать API)
+2. **Skills** обучают агентов специфике проекта
+3. **Agents** комбинируют tools и знания из skills для решения задач
+
+## Добавление новых компонентов
+
+### Добавить Tool
+
+1. Создать файл `.opencode/tools/myTool.ts`
+2. Описать tool с помощью `@opencode-ai/plugin`
+3. OpenCode автоматически обнаружит при запуске
+
+### Добавить Skill
+
+1. Создать папку `.opencode/skills/my-skill/`
+2. Создать файл `SKILL.md` с инструкциями
+3. Агент сможет загрузить skill по требованию
+
+### Добавить Agent
+
+1. Добавить конфигурацию в `.opencode/opencode.json` в секцию `agent`
+2. Указать режим (plan/build) и права
+3. Написать system prompt
+
+## Конфигурация
+
+Основные настройки в `opencode.json`:
+
+- `model` — используемая LLM модель
+- `permission` — права доступа к tools
+- `agent` — конфигурации агентов
+- `mcp` — подключение MCP серверов
+- `rules` — правила для всех агентов
+
+## Быстрый старт
+
+1. **Анализ кода:**
+   ```
+   /mode plan
+   Проанализируй архитектуру backend
+   ```
+
+2. **Разработка:**
+   ```
+   /mode build
+   Реализуй новый endpoint для получения цен активов
+   ```
+
+3. **Code Review:**
+   ```
+   /agent reviewer
+   Проверь этот PR на баги
+   ```
+
+4. **Использование Skills:**
+   ```
+   Загрузи skill tdd-workflow
+   Напиши тесты для этой функции
+   ```
+
+## Расширение
+
+Создавайте tools для интеграции с вашими API, skills для документирования подходов к разработке, агентов для специализированных задач.
+
+Все компоненты автоматически связываются через Tool Registry и доступны агентам.
+
+## Диаграмма сервиса бэкенда
+
+```mermaid
+graph TD
+    subgraph "Внешние сервисы"
+        CMC[CoinMarketCap API]
+        OS[OpenSea API]
+        SMTP[Yandex SMTP]
+    end
+
+    subgraph "NestJS Application"
+        subgraph "Modules"
+            AM[AssetsModule]
+            AuthM[AuthModule]
+            NM[NotificationsModule]
+        end
+
+        subgraph "Services"
+            SS[SchedulerService]
+            AUS[AssetUpdateService]
+            NS[NotificationService]
+            AS[AssetsService]
+            AuthS[AuthService]
+            ES[EmailService]
+        end
+
+        subgraph "Controllers"
+            AC[AssetsController]
+            AuthC[AuthController]
+            NC[NotificationsController]
+        end
+    end
+
+    subgraph "Database (SQLite)"
+        subgraph "Tables"
+            U[User<br/>id, email, password, role, lastUpdated]
+            A[Asset<br/>id, amount, middlePrice, userId, type<br/>+ CryptoAsset: symbol, currentPrice<br/>+ NFTAsset: collectionName, floorPrice]
+            HP[HistoricalPrice<br/>assetId, price, timestamp, source]
+            NS[NotificationSettings<br/>userId, assetType, enabled, thresholdPercent,<br/>intervalHours, lastNotified]
+            NL[NotificationLog<br/>userId, type, subject, message, sentAt, status]
+        end
+    end
+
+    %% Поток работы
+    SS -->|Каждые 4 часа| AUS
+    AUS -->|Обновление цен| CMC
+    AUS -->|Обновление floor price| OS
+    AUS -->|Сохранение истории| HP
+    AUS -->|После обновления| NS
+    NS -->|Проверка алертов| NS
+    NS -->|Отправка email| ES
+    ES -->|SMTP| SMTP
+    NS -->|Лог уведомлений| NL
+
+    SS -->|Еженедельно| NS
+    SS -->|Ежемесячно| NS
+    NS -->|Генерация отчетов| NS
+
+    %% Связи с контроллерами
+    AC --> AS
+    AC --> AUS
+    AuthC --> AuthS
+    NC --> NS
+
+    %% Связи с БД
+    AS --> A
+    AUS --> A
+    AUS --> HP
+    NS --> NS
+    NS --> NL
+    AuthS --> U
+
+    %% Связи между модулями
+    AM --> AUS
+    AM --> AS
+    AuthM --> AuthS
+    NM --> SS
+    NM --> NS
+    NM --> ES
+```
