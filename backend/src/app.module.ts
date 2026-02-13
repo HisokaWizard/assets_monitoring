@@ -37,7 +37,7 @@ import { NotificationLog } from './notifications/notification-log.entity';
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: 'database.sqlite',
+      database: process.env.DB_DATABASE || 'database.sqlite',
       entities: [Asset, HistoricalPrice, User, NotificationSettings, NotificationLog],
       synchronize: true, // For development; use migrations in production
     }),

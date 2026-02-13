@@ -17,10 +17,13 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationService } from './notification.service';
 import { EmailService } from './email.service';
+import { AlertService } from './alert.service';
+import { ReportService } from './report.service';
 import { SchedulerService } from './scheduler.service';
 import { NotificationSettings } from './notification-settings.entity';
 import { NotificationLog } from './notification-log.entity';
 import { HistoricalPrice } from '../assets/historical-price.entity';
+import { Asset } from '../assets/asset.entity';
 import { User } from '../auth/user.entity';
 
 /**
@@ -35,13 +38,13 @@ import { User } from '../auth/user.entity';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationSettings, NotificationLog, HistoricalPrice, User]),
+    TypeOrmModule.forFeature([NotificationSettings, NotificationLog, HistoricalPrice, Asset, User]),
     ScheduleModule.forRoot(),
     HttpModule,
     forwardRef(() => AssetsModule),
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationService, EmailService, SchedulerService],
-  exports: [NotificationService, EmailService, SchedulerService],
+  providers: [NotificationsService, NotificationService, EmailService, AlertService, ReportService, SchedulerService],
+  exports: [NotificationService, EmailService, AlertService, ReportService, SchedulerService],
 })
 export class NotificationsModule {}
