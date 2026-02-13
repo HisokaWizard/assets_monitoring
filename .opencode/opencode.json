@@ -12,7 +12,8 @@
     "bash": "ask",
     "task": "ask",
     "webfetch": "allow",
-    "websearch": "allow"
+    "websearch": "allow",
+    "context_docs": "allow"
   },
   
   "agent": {
