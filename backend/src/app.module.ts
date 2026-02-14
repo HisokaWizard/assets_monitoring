@@ -20,8 +20,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { Asset } from './assets/asset.entity';
 import { HistoricalPrice } from './assets/historical-price.entity';
 import { User } from './auth/user.entity';
-import { NotificationSettings } from './notifications/notification-settings.entity';
-import { NotificationLog } from './notifications/notification-log.entity';
+import { NotificationSettings } from './notifications/core/entities/notification-settings.entity';
+import { NotificationLog } from './notifications/core/entities/notification-log.entity';
 
 /**
  * Корневой модуль приложения.

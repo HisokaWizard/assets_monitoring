@@ -11,17 +11,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SendNotificationDto } from './dto/send-notification.dto';
-import { CreateNotificationSettingsDto } from './dto/create-notification-settings.dto';
-import { UpdateNotificationSettingsDto } from './dto/update-notification-settings.dto';
-import { GenerateReportDto } from './dto/generate-report.dto';
-import { NotificationSettings } from './notification-settings.entity';
+import { SendNotificationDto } from './core/dto/send-notification.dto';
+import { CreateNotificationSettingsDto } from './core/dto/create-notification-settings.dto';
+import { UpdateNotificationSettingsDto } from './core/dto/update-notification-settings.dto';
+import { GenerateReportDto } from './core/dto/generate-report.dto';
+import { NotificationSettings } from './core/entities/notification-settings.entity';
 import { HistoricalPrice } from '../assets/historical-price.entity';
-import { NotificationLog } from './notification-log.entity';
-import { EmailService } from './email.service';
-import { AlertService } from './alert.service';
-import { ReportService } from './report.service';
-import { SchedulerService } from './scheduler.service';
+import { NotificationLog } from './core/entities/notification-log.entity';
+import { EmailService } from './email/email.service';
+import { SchedulerService } from './scheduler/scheduler.service';
+import { ReportsService } from './reports/reports.service';
 
 /**
  * Сервис для отправки уведомлений.
@@ -41,9 +40,8 @@ export class NotificationsService {
     @InjectRepository(NotificationLog)
     private readonly logRepository: Repository<NotificationLog>,
     private readonly emailService: EmailService,
-    private readonly alertService: AlertService,
-    private readonly reportService: ReportService,
     private readonly schedulerService: SchedulerService,
+    private readonly reportsService: ReportsService,
   ) {}
 
   /**
@@ -117,7 +115,7 @@ export class NotificationsService {
    */
   async generateReport(userId: number, dto: GenerateReportDto): Promise<string> {
     // Для простоты, генерируем отчет для пользователя
-    await this.reportService.generateReports();
+    await this.reportsService.generatePeriodicReports('daily');
     return 'Report generation triggered';
   }
 

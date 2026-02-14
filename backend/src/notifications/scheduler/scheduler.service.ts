@@ -7,8 +7,8 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { AssetUpdateService } from '../assets/asset-update.service';
-import { NotificationService } from './notification.service';
+import { AssetUpdateService } from '../../assets/asset-update.service';
+import { NotificationService } from '../notification.service';
 
 /**
  * Сервис для планирования.

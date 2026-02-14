@@ -9,11 +9,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotificationSettings } from './notification-settings.entity';
-import { NotificationLog } from './notification-log.entity';
+import { NotificationSettings } from './core/entities/notification-settings.entity';
+import { NotificationLog } from './core/entities/notification-log.entity';
 import { Asset, CryptoAsset, NFTAsset } from '../assets/asset.entity';
 import { User } from '../auth/user.entity';
-import { EmailService } from './email.service';
+import { EmailService } from './email/email.service';
+import { AlertsService } from './alerts/alerts.service';
+import { ReportsService } from './reports/reports.service';
 
 /**
  * Сервис уведомлений.
@@ -37,237 +39,31 @@ export class NotificationService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly emailService: EmailService,
+    private readonly alertsService: AlertsService,
+    private readonly reportsService: ReportsService,
   ) {}
 
   /**
    * Проверка алертов после обновлений активов.
    *
+   * Делегирует выполнение AlertsService.
+   *
    * @param userId Опциональный ID пользователя для фильтрации
    * @param assetIds Опциональный массив ID активов для проверки
    */
   async checkAlertsAfterUpdate(userId?: number, assetIds?: number[]): Promise<void> {
-    this.logger.log(
-      `Checking alerts after update for user ${userId || 'all'}, assets ${
-        assetIds?.join(', ') || 'all'
-      }`,
-    );
-
-    let query = this.settingsRepository
-      .createQueryBuilder('setting')
-      .leftJoinAndSelect('setting.user', 'user')
-      .where('setting.enabled = :enabled', { enabled: true });
-
-    if (userId) {
-      query = query.andWhere('setting.userId = :userId', { userId });
-    }
-
-    const settings = await query.getMany();
-
-    for (const setting of settings) {
-      try {
-        await this.checkUserAlertsAfterUpdate(setting, assetIds);
-      } catch (error) {
-        this.logger.error(`Error checking alerts for user ${setting.userId}: ${error.message}`);
-      }
-    }
-  }
-
-  /**
-   * Проверка алертов для конкретного пользователя после обновлений.
-   *
-   * @param setting Настройки уведомлений пользователя
-   * @param assetIds Опциональный массив ID активов
-   */
-  private async checkUserAlertsAfterUpdate(
-    setting: NotificationSettings,
-    assetIds?: number[],
-  ): Promise<void> {
-    const now = new Date();
-    const intervalMs = setting.intervalHours * 60 * 60 * 1000;
-
-    // Проверяем, прошел ли интервал с последнего уведомления
-    if (setting.lastNotified && now.getTime() - setting.lastNotified.getTime() < intervalMs) {
-      return;
-    }
-
-    // Получаем активы пользователя
-    let assetsQuery = this.assetsRepository
-      .createQueryBuilder('asset')
-      .where('asset.userId = :userId', { userId: setting.userId });
-
-    if (assetIds && assetIds.length > 0) {
-      assetsQuery = assetsQuery.andWhere('asset.id IN (:...assetIds)', { assetIds });
-    }
-
-    const allAssets = await assetsQuery.getMany();
-
-    // Фильтруем по типу
-    const assets = allAssets.filter((asset) => {
-      if (setting.assetType === 'crypto') {
-        return asset instanceof CryptoAsset;
-      } else if (setting.assetType === 'nft') {
-        return asset instanceof NFTAsset;
-      }
-      return false;
-    });
-
-    const alertsTriggered = [];
-
-    for (const asset of assets) {
-      const change = this.calculatePriceChange(asset);
-      if (Math.abs(change) >= setting.thresholdPercent) {
-        const assetName =
-          asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
-        const currentPrice =
-          asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-        alertsTriggered.push({
-          asset: assetName,
-          change: change.toFixed(2),
-          currentPrice,
-        });
-      }
-    }
-
-    if (alertsTriggered.length > 0) {
-      await this.sendNotification('alert', setting.user, { alerts: alertsTriggered });
-      setting.lastNotified = now;
-      await this.settingsRepository.save(setting);
-    }
+    return this.alertsService.checkAlertsAfterUpdate(userId, assetIds);
   }
 
   /**
    * Генерация периодических отчетов.
    *
+   * Делегирует выполнение ReportsService.
+   *
    * @param period Период отчета ('daily', 'weekly', etc.)
    */
   async generatePeriodicReports(period: string): Promise<void> {
-    this.logger.log(`Generating ${period} reports`);
-
-    // Получаем уникальных пользователей
-    const userIds = await this.assetsRepository
-      .createQueryBuilder('asset')
-      .select('DISTINCT asset.userId', 'userId')
-      .getRawMany();
-
-    for (const { userId } of userIds) {
-      try {
-        await this.generateUserPeriodicReport(userId, period);
-      } catch (error) {
-        this.logger.error(`Error generating ${period} report for user ${userId}: ${error.message}`);
-      }
-    }
-  }
-
-  /**
-   * Генерация периодического отчета для конкретного пользователя.
-   *
-   * @param userId ID пользователя
-   * @param period Период отчета
-   */
-  private async generateUserPeriodicReport(userId: number, period: string): Promise<void> {
-    const assets = await this.assetsRepository.find({
-      where: { userId },
-      relations: ['user'],
-    });
-
-    if (assets.length === 0 || !assets[0].user) return;
-
-    const user = assets[0].user;
-
-    const reportData = [];
-
-    for (const asset of assets) {
-      const lastPrice = this.getLastPriceForPeriod(asset, period);
-      const currentPrice = this.getCurrentPrice(asset);
-
-      let change = 0;
-      if (lastPrice && lastPrice !== 0) {
-        change = ((currentPrice - lastPrice) / lastPrice) * 100;
-      }
-
-      // Обновляем last*Price на текущую цену
-      this.setLastPriceForPeriod(asset, period, currentPrice);
-
-      const name = asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
-      const totalValue = asset.amount * currentPrice;
-
-      reportData.push({
-        name,
-        type: asset instanceof CryptoAsset ? 'Crypto' : 'NFT',
-        currentPrice,
-        change,
-        totalValue,
-      });
-    }
-
-    // Сохраняем обновленные активы
-    await this.assetsRepository.save(assets);
-
-    await this.sendNotification('report', user, { period, reportData });
-  }
-
-  /**
-   * Получение последней цены для периода.
-   *
-   * @param asset Актив
-   * @param period Период
-   * @returns Последняя цена
-   */
-  private getLastPriceForPeriod(asset: Asset, period: string): number | null {
-    switch (period) {
-      case 'daily':
-        return asset.dailyPrice;
-      case 'weekly':
-        return asset.weeklyPrice;
-      case 'monthly':
-        return asset.monthlyPrice;
-      case 'quarterly':
-        return asset.quartPrice;
-      case 'yearly':
-        return asset.yearPrice;
-      default:
-        return asset.dailyPrice;
-    }
-  }
-
-  /**
-   * Установка последней цены для периода.
-   *
-   * @param asset Актив
-   * @param period Период
-   * @param price Цена
-   */
-  private setLastPriceForPeriod(asset: Asset, period: string, price: number): void {
-    switch (period) {
-      case 'daily':
-        asset.dailyPrice = price;
-        break;
-      case 'weekly':
-        asset.weeklyPrice = price;
-        break;
-      case 'monthly':
-        asset.monthlyPrice = price;
-        break;
-      case 'quarterly':
-        asset.quartPrice = price;
-        break;
-      case 'yearly':
-        asset.yearPrice = price;
-        break;
-      default:
-        asset.dailyPrice = price;
-        break;
-    }
-  }
-
-  /**
-   * Получение текущей цены актива.
-   *
-   * @param asset Актив
-   * @returns Текущая цена
-   */
-  private getCurrentPrice(asset: Asset): number {
-    return asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
+    return this.reportsService.generatePeriodicReports(period);
   }
 
   /**
@@ -312,20 +108,6 @@ export class NotificationService {
     } else {
       this.logger.error(`Failed to send ${type} notification to user ${user.id}`);
     }
-  }
-
-  /**
-   * Вычисление изменения цены актива за интервал обновлений.
-   *
-   * @param asset Актив
-   * @returns Процентное изменение
-   */
-  private calculatePriceChange(asset: Asset): number {
-    if (!asset.previousPrice || asset.previousPrice === 0) return 0;
-
-    const currentPrice =
-      asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-    return ((currentPrice - asset.previousPrice) / asset.previousPrice) * 100;
   }
 
   /**

@@ -14,7 +14,7 @@ import { firstValueFrom } from 'rxjs';
 import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/notification-settings.entity';
+import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
 
 /**
  * Сервис для обновления активов.

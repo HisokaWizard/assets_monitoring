@@ -8,7 +8,7 @@
  */
 
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../auth/user.entity';
+import { User } from '../../../auth/user.entity';
 
 /**
  * Сущность настроек уведомлений.

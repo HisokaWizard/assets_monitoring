@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/notification-settings.entity';
+import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
 import { of } from 'rxjs';
 
 describe('AssetUpdateService', () => {

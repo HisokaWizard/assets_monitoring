@@ -9,10 +9,10 @@
 
 import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
-import { SendNotificationDto } from './dto/send-notification.dto';
-import { CreateNotificationSettingsDto } from './dto/create-notification-settings.dto';
-import { UpdateNotificationSettingsDto } from './dto/update-notification-settings.dto';
-import { GenerateReportDto } from './dto/generate-report.dto';
+import { SendNotificationDto } from './core/dto/send-notification.dto';
+import { CreateNotificationSettingsDto } from './core/dto/create-notification-settings.dto';
+import { UpdateNotificationSettingsDto } from './core/dto/update-notification-settings.dto';
+import { GenerateReportDto } from './core/dto/generate-report.dto';
 
 /**
  * Контроллер для операций с уведомлениями.

@@ -9,7 +9,7 @@ import { createConnection } from 'typeorm';
 import { User } from './auth/user.entity';
 import { Asset, CryptoAsset, NFTAsset } from './assets/asset.entity';
 import * as bcrypt from 'bcrypt';
-import { NotificationSettings } from './notifications/notification-settings.entity';
+import { NotificationSettings } from './notifications/core/entities/notification-settings.entity';
 
 /**
  * Функция для заполнения базы данных тестовыми данными.

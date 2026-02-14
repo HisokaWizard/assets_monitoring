@@ -19,7 +19,7 @@ import { AssetUpdateService } from './asset-update.service';
 import { Asset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/notification-settings.entity';
+import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
 
 /**
  * Модуль активов.

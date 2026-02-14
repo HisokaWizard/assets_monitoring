@@ -1,5 +1,5 @@
 /**
- * @fileoverview Сервис для обработки алертов о изменениях цен.
+ * @fileoverview Сервис для проверки ценовых алертов.
  *
  * Этот файл содержит логику для проверки изменений цен активов
  * и отправки уведомлений пользователям на основе их настроек.
@@ -7,11 +7,11 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
-import { NotificationSettings } from './notification-settings.entity';
-import { NotificationLog } from './notification-log.entity';
-import { Asset, CryptoAsset, NFTAsset } from '../assets/asset.entity';
-import { EmailService } from './email.service';
+import { Repository } from 'typeorm';
+import { NotificationSettings } from '../core/entities/notification-settings.entity';
+import { NotificationLog } from '../core/entities/notification-log.entity';
+import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
+import { EmailService } from '../email/email.service';
 
 /**
  * Сервис для алертов.
@@ -22,8 +22,8 @@ import { EmailService } from './email.service';
  * @Injectable регистрирует класс как провайдер в контейнере зависимостей.
  */
 @Injectable()
-export class AlertService {
-  private readonly logger = new Logger(AlertService.name);
+export class AlertsService {
+  private readonly logger = new Logger(AlertsService.name);
 
   constructor(
     @InjectRepository(NotificationSettings)
@@ -36,22 +36,32 @@ export class AlertService {
   ) {}
 
   /**
-   * Проверка алертов для всех пользователей.
+   * Проверка алертов после обновлений активов.
    *
-   * Получает активные настройки и проверяет изменения цен.
-   * Отправляет уведомления, если условия выполнены.
+   * @param userId Опциональный ID пользователя для фильтрации
+   * @param assetIds Опциональный массив ID активов для проверки
    */
-  async checkAlerts(): Promise<void> {
-    this.logger.log('Checking price alerts');
+  async checkAlertsAfterUpdate(userId?: number, assetIds?: number[]): Promise<void> {
+    this.logger.log(
+      `Checking alerts after update for user ${userId || 'all'}, assets ${
+        assetIds?.join(', ') || 'all'
+      }`,
+    );
 
-    const settings = await this.settingsRepository.find({
-      where: { enabled: true },
-      relations: ['user'],
-    });
+    let query = this.settingsRepository
+      .createQueryBuilder('setting')
+      .leftJoinAndSelect('setting.user', 'user')
+      .where('setting.enabled = :enabled', { enabled: true });
+
+    if (userId) {
+      query = query.andWhere('setting.userId = :userId', { userId });
+    }
+
+    const settings = await query.getMany();
 
     for (const setting of settings) {
       try {
-        await this.checkUserAlerts(setting);
+        await this.checkUserAlertsAfterUpdate(setting, assetIds);
       } catch (error) {
         this.logger.error(`Error checking alerts for user ${setting.userId}: ${error.message}`);
       }
@@ -59,11 +69,15 @@ export class AlertService {
   }
 
   /**
-   * Проверка алертов для конкретного пользователя.
+   * Проверка алертов для конкретного пользователя после обновлений.
    *
    * @param setting Настройки уведомлений пользователя
+   * @param assetIds Опциональный массив ID активов
    */
-  private async checkUserAlerts(setting: NotificationSettings): Promise<void> {
+  private async checkUserAlertsAfterUpdate(
+    setting: NotificationSettings,
+    assetIds?: number[],
+  ): Promise<void> {
     const now = new Date();
     const intervalMs = setting.intervalHours * 60 * 60 * 1000;
 
@@ -72,13 +86,19 @@ export class AlertService {
       return;
     }
 
-    // Получаем все активы пользователя
-    const allAssets = await this.assetsRepository.find({
-      where: { userId: setting.userId },
-    });
+    // Получаем активы пользователя
+    let assetsQuery = this.assetsRepository
+      .createQueryBuilder('asset')
+      .where('asset.userId = :userId', { userId: setting.userId });
+
+    if (assetIds && assetIds.length > 0) {
+      assetsQuery = assetsQuery.andWhere('asset.id IN (:...assetIds)', { assetIds });
+    }
+
+    const allAssets = await assetsQuery.getMany();
 
     // Фильтруем по типу
-    const assets = allAssets.filter(asset => {
+    const assets = allAssets.filter((asset) => {
       if (setting.assetType === 'crypto') {
         return asset instanceof CryptoAsset;
       } else if (setting.assetType === 'nft') {
@@ -92,8 +112,10 @@ export class AlertService {
     for (const asset of assets) {
       const change = this.calculatePriceChange(asset);
       if (Math.abs(change) >= setting.thresholdPercent) {
-        const assetName = asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
-        const currentPrice = asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
+        const assetName =
+          asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
+        const currentPrice =
+          asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
         alertsTriggered.push({
           asset: assetName,
           change: change.toFixed(2),
@@ -110,16 +132,17 @@ export class AlertService {
   }
 
   /**
-   * Вычисление изменения цены актива.
+   * Вычисление изменения цены актива за интервал обновлений.
    *
    * @param asset Актив
    * @returns Процентное изменение
    */
   private calculatePriceChange(asset: Asset): number {
-    if (!asset.middlePrice || asset.middlePrice === 0) return 0;
+    if (!asset.previousPrice || asset.previousPrice === 0) return 0;
 
-    const currentPrice = asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-    return ((currentPrice - asset.middlePrice) / asset.middlePrice) * 100;
+    const currentPrice =
+      asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
+    return ((currentPrice - asset.previousPrice) / asset.previousPrice) * 100;
   }
 
   /**
