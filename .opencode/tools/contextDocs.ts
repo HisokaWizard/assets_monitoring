@@ -9,11 +9,6 @@ interface CacheEntry {
   source: 'local' | 'github';
 }
 
-interface DocStructure {
-  mainFile: string;
-  sections: Map<string, string>;
-}
-
 const CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
 const LOCAL_BASE_PATH = '../documents_hub';
@@ -182,39 +177,20 @@ export default tool({
   
   async execute(args, context) {
     const { layer, topic, section, search, refresh, listSections } = args;
-    const startTime = Date.now();
     
     // Если запрошен поиск по содержимому
     if (search) {
       const searchResults = await searchInAllFiles(layer, search, refresh);
       
-      context.metadata({
-        layer,
-        searchTerm: search,
-        resultsCount: searchResults.length,
-        duration: Date.now() - startTime
-      });
-      
       if (searchResults.length === 0) {
-        return {
-          content: `No matches found for "${search}" in ${layer} documentation.`,
-          searchTerm: search,
-          layer,
-          source: 'search'
-        };
+        return `No matches found for "${search}" in ${layer} documentation.`;
       }
       
       const formattedResults = searchResults.map(result => 
         `## ${result.file}\n${result.matches.slice(0, 3).map(m => `- ...${m}...`).join('\n')}`
       ).join('\n\n');
       
-      return {
-        content: `Search results for "${search}" in ${layer}:\n\n${formattedResults}`,
-        searchTerm: search,
-        layer,
-        results: searchResults,
-        source: 'search'
-      };
+      return `Search results for "${search}" in ${layer}:\n\n${formattedResults}`;
     }
     
     // Определяем путь к главному файлу
@@ -224,25 +200,12 @@ export default tool({
     
     try {
       // Получаем главный файл
-      const { content: mainContent, source } = await getDocument(mainFile, refresh);
-      
-      context.metadata({
-        layer,
-        source,
-        hasTopic: !!topic,
-        hasSection: !!section,
-        duration: Date.now() - startTime
-      });
+      const { content: mainContent } = await getDocument(mainFile, refresh);
       
       // Если нужен только список разделов
       if (listSections) {
         const sections = parseSections(mainContent);
-        return {
-          content: `Available sections in ${layer}:\n${sections.map(s => `- ${s}`).join('\n')}`,
-          sections,
-          source,
-          mainFile
-        };
+        return `Available sections in ${layer}:\n${sections.map(s => `- ${s}`).join('\n')}`;
       }
       
       // Если запрошен конкретный топик
@@ -256,39 +219,18 @@ export default tool({
           const match = topicContent.match(sectionRegex);
           
           if (match) {
-            return {
-              content: match[0].trim(),
-              source: source === 'local' ? 'local' : 'github',
-              layer,
-              topic,
-              section
-            };
+            return match[0].trim();
           }
           
-          return {
-            content: `Section "${section}" not found in ${layer}/${topic}`,
-            source: 'not_found',
-            layer,
-            topic
-          };
+          return `Section "${section}" not found in ${layer}/${topic}`;
         }
         
-        return {
-          content: topicContent,
-          source: source === 'local' ? 'local' : 'github',
-          layer,
-          topic
-        };
+        return topicContent;
       }
       
       // Возвращаем главный файл
-      return {
-        content: mainContent,
-        sections: parseSections(mainContent),
-        source,
-        layer,
-        mainFile
-      };
+      const sections = parseSections(mainContent);
+      return `${mainContent}\n\n---\nAvailable sections:\n${sections.map(s => `- ${s}`).join('\n')}`;
       
     } catch (error) {
       throw new Error(
