@@ -62,6 +62,7 @@ describe('AuthService', () => {
       jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedPassword123' as never);
       usersRepository.create.mockReturnValue(mockUser);
       usersRepository.save.mockResolvedValue(mockUser);
+      usersRepository.findOneBy.mockResolvedValue(null);
 
       const result = await service.register(registerDto);
 
@@ -72,7 +73,13 @@ describe('AuthService', () => {
         role: registerDto.role,
       });
       expect(usersRepository.save).toHaveBeenCalledWith(mockUser);
-      expect(result).toEqual(mockUser);
+      // Result should not include password
+      expect(result).toEqual({
+        id: mockUser.id,
+        email: mockUser.email,
+        role: mockUser.role,
+        lastUpdated: mockUser.lastUpdated,
+      });
     });
 
     it('should hash the password before saving', async () => {

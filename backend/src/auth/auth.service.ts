@@ -7,7 +7,7 @@
  * Сервисы инкапсулируют сложную логику и могут быть легко протестированы.
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -47,13 +47,22 @@ export class AuthService {
    * @returns Promise с созданным пользователем (без пароля).
    * @throws Ошибка, если email уже занят.
    */
-  async register(registerDto: RegisterDto): Promise<User> {
+  async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
+    // Check if user with this email already exists
+    const existingUser = await this.usersRepository.findOneBy({ email: registerDto.email });
+    if (existingUser) {
+      throw new BadRequestException('User with this email already exists');
+    }
+
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = this.usersRepository.create({
       ...registerDto,
       password: hashedPassword,
     });
-    return this.usersRepository.save(user);
+    const savedUser = await this.usersRepository.save(user);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...result } = savedUser;
+    return result as Omit<User, 'password'>;
   }
 
   /**
@@ -73,6 +82,6 @@ export class AuthService {
         access_token: this.jwtService.sign(payload),
       };
     }
-    throw new Error('Invalid credentials');
+    throw new UnauthorizedException('Invalid credentials');
   }
 }
