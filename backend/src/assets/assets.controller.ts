@@ -9,7 +9,8 @@
  * @Controller('assets') создает префикс '/assets' для всех маршрутов контроллера.
  */
 
-import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Request, NotFoundException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AssetsService } from './assets.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
@@ -23,6 +24,7 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
  * @Controller декоратор регистрирует класс как контроллер,
  * который обрабатывает HTTP запросы по указанному пути.
  */
+@UseGuards(AuthGuard('jwt'))
 @Controller('assets')
 export class AssetsController {
   /**
@@ -53,21 +55,27 @@ export class AssetsController {
    * @Param('id') извлекает параметр из URL.
    */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.assetsService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    const asset = await this.assetsService.findOne(+id);
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${id} not found`);
+    }
+    return asset;
   }
 
   /**
    * Создать новый актив.
    *
    * @param createAssetDto Данные для создания актива из тела запроса.
+   * @param req Запрос с пользователем из JWT токена.
    * @returns Созданный актив.
    * @Post декоратор обрабатывает POST запросы на '/assets'.
    * @Body извлекает данные из тела HTTP запроса.
+   * @Request предоставляет доступ к объекту запроса с пользователем.
    */
   @Post()
-  create(@Body() createAssetDto: CreateAssetDto) {
-    return this.assetsService.create(createAssetDto);
+  create(@Body() createAssetDto: CreateAssetDto, @Request() req) {
+    return this.assetsService.create({ ...createAssetDto, userId: req.user.id });
   }
 
   /**
@@ -79,8 +87,12 @@ export class AssetsController {
    * @Put(':id') обрабатывает PUT запросы на '/assets/:id'.
    */
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
-    return this.assetsService.update(+id, updateAssetDto);
+  async update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
+    const asset = await this.assetsService.update(+id, updateAssetDto);
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${id} not found`);
+    }
+    return asset;
   }
 
   /**
@@ -90,7 +102,11 @@ export class AssetsController {
    * @Delete(':id') обрабатывает DELETE запросы на '/assets/:id'.
    */
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
+    const asset = await this.assetsService.findOne(+id);
+    if (!asset) {
+      throw new NotFoundException(`Asset with ID ${id} not found`);
+    }
     return this.assetsService.remove(+id);
   }
 }

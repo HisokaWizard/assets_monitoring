@@ -24,7 +24,6 @@ import { HistoricalPrice } from '../assets/historical-price.entity';
 import { Asset } from '../assets/asset.entity';
 import { User } from '../auth/user.entity';
 import { EmailModule } from './email/email.module';
-import { SchedulerModule } from './scheduler/scheduler.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AlertsService } from './alerts/alerts.service';
 import { ReportsModule } from './reports/reports.module';
@@ -47,7 +46,6 @@ import { ReportsService } from './reports/reports.service';
     HttpModule,
     forwardRef(() => AssetsModule),
     EmailModule,
-    SchedulerModule,
     AlertsModule,
     ReportsModule,
   ],

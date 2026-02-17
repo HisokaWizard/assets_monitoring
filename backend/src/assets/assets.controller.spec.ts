@@ -85,15 +85,15 @@ describe('AssetsController', () => {
       expect(result).toEqual(mockCryptoAsset);
     });
 
-    it('should return null if not found', async () => {
+    it('should throw NotFoundException if not found', async () => {
       service.findOne.mockResolvedValue(null);
 
-      const result = await controller.findOne('999');
-
-      expect(result).toBeNull();
+      await expect(controller.findOne('999')).rejects.toThrow('Asset with ID 999 not found');
     });
 
     it('should convert id to number', async () => {
+      service.findOne.mockResolvedValue(mockCryptoAsset);
+
       await controller.findOne('42');
 
       expect(service.findOne).toHaveBeenCalledWith(42);
@@ -112,6 +112,10 @@ describe('AssetsController', () => {
   });
 
   describe('create', () => {
+    const mockRequest = {
+      user: { id: 1, email: 'test@example.com', role: 'user' },
+    };
+
     it('should return 201 and created crypto asset', async () => {
       const createDto = {
         type: 'crypto' as const,
@@ -124,9 +128,9 @@ describe('AssetsController', () => {
 
       service.create.mockResolvedValue(mockCryptoAsset);
 
-      const result = await controller.create(createDto);
+      const result = await controller.create(createDto, mockRequest as any);
 
-      expect(service.create).toHaveBeenCalledWith(createDto);
+      expect(service.create).toHaveBeenCalledWith({ ...createDto, userId: 1 });
       expect(result).toEqual(mockCryptoAsset);
     });
 
@@ -142,13 +146,13 @@ describe('AssetsController', () => {
 
       service.create.mockResolvedValue(mockNFTAsset);
 
-      const result = await controller.create(createDto);
+      const result = await controller.create(createDto, mockRequest as any);
 
-      expect(service.create).toHaveBeenCalledWith(createDto);
+      expect(service.create).toHaveBeenCalledWith({ ...createDto, userId: 1 });
       expect(result).toEqual(mockNFTAsset);
     });
 
-    it('should call service.create() with dto', async () => {
+    it('should call service.create() with dto and userId', async () => {
       const createDto = {
         type: 'crypto' as const,
         amount: 2.0,
@@ -158,10 +162,10 @@ describe('AssetsController', () => {
         currentPrice: 49000,
       };
 
-      await controller.create(createDto);
+      await controller.create(createDto, mockRequest as any);
 
       expect(service.create).toHaveBeenCalledTimes(1);
-      expect(service.create).toHaveBeenCalledWith(createDto);
+      expect(service.create).toHaveBeenCalledWith({ ...createDto, userId: 1 });
     });
   });
 
@@ -187,35 +191,36 @@ describe('AssetsController', () => {
       expect(service.update).toHaveBeenCalledWith(42, updateDto);
     });
 
-    it('should return null if asset not found', async () => {
+    it('should throw NotFoundException if asset not found', async () => {
       const updateDto = { amount: 2.0 };
       service.update.mockResolvedValue(null);
 
-      const result = await controller.update('999', updateDto as any);
-
-      expect(result).toBeNull();
+      await expect(controller.update('999', updateDto as any)).rejects.toThrow('Asset with ID 999 not found');
     });
   });
 
   describe('remove', () => {
     it('should return 200/204', async () => {
+      service.findOne.mockResolvedValue(mockCryptoAsset);
       service.remove.mockResolvedValue(undefined);
 
       await controller.remove('1');
 
+      expect(service.findOne).toHaveBeenCalledWith(1);
       expect(service.remove).toHaveBeenCalledWith(1);
     });
 
     it('should convert id to number', async () => {
+      service.findOne.mockResolvedValue(mockCryptoAsset);
       await controller.remove('42');
 
       expect(service.remove).toHaveBeenCalledWith(42);
     });
 
-    it('should not throw on non-existent asset', async () => {
-      service.remove.mockResolvedValue(undefined);
+    it('should throw NotFoundException on non-existent asset', async () => {
+      service.findOne.mockResolvedValue(null);
 
-      await expect(controller.remove('999')).resolves.not.toThrow();
+      await expect(controller.remove('999')).rejects.toThrow('Asset with ID 999 not found');
     });
   });
 });

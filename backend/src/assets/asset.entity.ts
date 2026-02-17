@@ -182,19 +182,19 @@ export class CryptoAsset extends Asset {
   /**
    * Символ криптовалюты (например, "BTC").
    */
-  @Column()
+  @Column({ nullable: true })
   symbol: string;
 
   /**
    * Полное название криптовалюты (например, "Bitcoin").
    */
-  @Column()
+  @Column({ nullable: true })
   fullName: string;
 
   /**
    * Текущая цена криптовалюты.
    */
-  @Column('decimal')
+  @Column({ type: 'decimal', nullable: true })
   currentPrice: number;
 }
 
@@ -208,18 +208,18 @@ export class NFTAsset extends Asset {
   /**
    * Название коллекции NFT.
    */
-  @Column()
+  @Column({ nullable: true })
   collectionName: string;
 
   /**
    * Цена пола коллекции.
    */
-  @Column('decimal')
+  @Column({ type: 'decimal', nullable: true })
   floorPrice: number;
 
   /**
    * Цена по признакам.
    */
-  @Column('decimal')
+  @Column({ type: 'decimal', nullable: true })
   traitPrice: number;
 }

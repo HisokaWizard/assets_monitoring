@@ -11,6 +11,8 @@ import { SchedulerService } from './scheduler.service';
  * Модуль планировщика.
  *
  * Экспортирует SchedulerService для использования в других модулях.
+ * Зависимости (AssetsModule, NotificationService) предоставляются через
+ * NotificationsModule, который импортирует этот модуль.
  */
 @Module({
   providers: [SchedulerService],

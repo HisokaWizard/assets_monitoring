@@ -32,7 +32,7 @@ import { User } from './user.entity';
     TypeOrmModule.forFeature([User]),
     PassportModule,
     JwtModule.register({
-      secret: 'secret', // Use env
+      secret: process.env.JWT_SECRET || 'secret',
       signOptions: { expiresIn: '60m' },
     }),
   ],

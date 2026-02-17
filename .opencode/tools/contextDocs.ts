@@ -10,7 +10,7 @@ interface CacheEntry {
 }
 
 const CACHE = new Map<string, CacheEntry>();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 const LOCAL_BASE_PATH = '../documents_hub';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/HisokaWizard/documents_hub/main';
 
@@ -25,72 +25,63 @@ async function checkLocalPath(relativePath: string): Promise<boolean> {
 
 async function readLocalFile(relativePath: string): Promise<string> {
   const fullPath = path.resolve(LOCAL_BASE_PATH, relativePath);
-  return fs.readFile(fullPath, 'utf-8');
+  const content = await fs.readFile(fullPath, 'utf-8');
+  return String(content);
 }
 
 async function fetchFromGitHub(relativePath: string): Promise<string> {
   const url = `${GITHUB_RAW_BASE}/${relativePath}`;
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch from GitHub: ${response.status} ${response.statusText}`);
   }
-  
-  return response.text();
+
+  const text = await response.text();
+  return String(text);
 }
 
 async function getDocument(relativePath: string, forceRefresh: boolean = false): Promise<{ content: string; source: 'local' | 'github' }> {
   const cacheKey = relativePath;
-  
-  // Проверяем кэш
+
   if (!forceRefresh) {
     const cached = CACHE.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return { content: cached.content, source: cached.source };
+      return { content: String(cached.content), source: cached.source };
     }
   }
-  
-  // Пробуем локальный путь
+
   const hasLocal = await checkLocalPath(relativePath);
-  
+
   if (hasLocal) {
     const content = await readLocalFile(relativePath);
     CACHE.set(cacheKey, { content, timestamp: Date.now(), source: 'local' });
     return { content, source: 'local' };
   }
-  
-  // Fallback на GitHub
+
   const content = await fetchFromGitHub(relativePath);
   CACHE.set(cacheKey, { content, timestamp: Date.now(), source: 'github' });
   return { content, source: 'github' };
 }
 
 function parseSections(content: string): string[] {
-  // Ищем ссылки на разделы в формате markdown
   const sectionRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   const sections: string[] = [];
   let match;
-  
+
   while ((match = sectionRegex.exec(content)) !== null) {
     const [, name, link] = match;
-    // Проверяем, что это ссылка на раздел (не внешняя ссылка)
     if (!link.startsWith('http') && !link.startsWith('#')) {
       sections.push(name);
     }
   }
-  
+
   return sections;
 }
 
-async function getSectionContent(
-  layer: string, 
-  sectionName: string, 
-  forceRefresh: boolean
-): Promise<string> {
-  // Преобразуем имя раздела в путь (UPPERCASE как в documents_hub)
-  // Например: "nestjs" → "backend/NESTJS.md" или "frontend/REACT.md"
+async function getSectionContent(layer: string, sectionName: string, forceRefresh: boolean): Promise<string> {
   const sectionPath = `${layer}/${sectionName.toUpperCase()}.md`;
-  
+
   try {
     const { content } = await getDocument(sectionPath, forceRefresh);
     return content;
@@ -99,143 +90,111 @@ async function getSectionContent(
   }
 }
 
-async function searchInAllFiles(
-  layer: string,
-  searchTerm: string,
-  forceRefresh: boolean
-): Promise<Array<{ file: string; matches: string[] }>> {
+async function searchInAllFiles(layer: string, searchTerm: string, forceRefresh: boolean): Promise<Array<{ file: string; matches: string[] }>> {
   const results: Array<{ file: string; matches: string[] }> = [];
-  
-  // Получаем список всех .md файлов в слое
   const layerPath = path.resolve(LOCAL_BASE_PATH, layer);
-  
+
   try {
     const files = await fs.readdir(layerPath);
     const mdFiles = files.filter(f => f.endsWith('.md'));
-    
+
     for (const file of mdFiles) {
       const filePath = `${layer}/${file}`;
       try {
         const { content } = await getDocument(filePath, forceRefresh);
-        
-        // Ищем совпадения
         const searchRegex = new RegExp(searchTerm, 'gi');
         const matches: string[] = [];
         let match;
-        
+
         while ((match = searchRegex.exec(content)) !== null) {
-          // Получаем контекст вокруг совпадения (100 символов)
           const start = Math.max(0, match.index - 50);
           const end = Math.min(content.length, match.index + searchTerm.length + 50);
-          const context = content.substring(start, end);
-          matches.push(context.trim());
+          matches.push(content.substring(start, end).trim());
         }
-        
+
         if (matches.length > 0) {
           results.push({ file: file.replace('.md', ''), matches });
         }
       } catch {
-        // Пропускаем файлы которые не удалось прочитать
+        // Skip files that can't be read
       }
     }
   } catch {
-    // Если директория не существует
+    // Directory doesn't exist
   }
-  
+
   return results;
 }
 
 export default tool({
   description: 'Retrieve documentation from documents_hub for development context. Gets architecture guidelines, stack details, and best practices from local copy or GitHub fallback. Supports searching by topic name or content.',
-  
+
   args: {
     layer: z.enum(['frontend', 'backend'])
       .describe('Which application layer to get documentation for'),
-    
-    topic: z.string()
-      .optional()
-      .describe('Specific topic to retrieve (e.g., "NESTJS", "REACT", "WEBPACK"). If not provided, returns main settings file'),
-    
-    section: z.string()
-      .optional()
+    topic: z.string().optional()
+      .describe('Specific topic to retrieve (e.g., "NESTJS", "REACT", "WEBPACK")'),
+    section: z.string().optional()
       .describe('Specific section within the topic to retrieve'),
-    
-    search: z.string()
-      .optional()
-      .describe('Search term to find in all documentation files (e.g., "webpack", "database"). Returns matching contexts from all files'),
-    
-    refresh: z.boolean()
-      .optional()
-      .default(false)
+    search: z.string().optional()
+      .describe('Search term to find in all documentation files'),
+    refresh: z.boolean().optional().default(false)
       .describe('Force refresh from source, bypassing cache'),
-    
-    listSections: z.boolean()
-      .optional()
-      .default(false)
+    listSections: z.boolean().optional().default(false)
       .describe('Return list of available sections instead of content')
   },
-  
+
   async execute(args, context) {
     const { layer, topic, section, search, refresh, listSections } = args;
-    
-    // Если запрошен поиск по содержимому
+
     if (search) {
       const searchResults = await searchInAllFiles(layer, search, refresh);
-      
+
       if (searchResults.length === 0) {
         return `No matches found for "${search}" in ${layer} documentation.`;
       }
-      
-      const formattedResults = searchResults.map(result => 
+
+      const formattedResults = searchResults.map(result =>
         `## ${result.file}\n${result.matches.slice(0, 3).map(m => `- ...${m}...`).join('\n')}`
       ).join('\n\n');
-      
+
       return `Search results for "${search}" in ${layer}:\n\n${formattedResults}`;
     }
-    
-    // Определяем путь к главному файлу
-    const mainFile = layer === 'frontend' 
-      ? 'frontend/FE_APP_SETTINGS.md' 
+
+    const mainFile = layer === 'frontend'
+      ? 'frontend/FE_APP_SETTINGS.md'
       : 'backend/BE_APP_SETTINGS.md';
-    
+
     try {
-      // Получаем главный файл
       const { content: mainContent } = await getDocument(mainFile, refresh);
-      
-      // Если нужен только список разделов
+
       if (listSections) {
         const sections = parseSections(mainContent);
         return `Available sections in ${layer}:\n${sections.map(s => `- ${s}`).join('\n')}`;
       }
-      
-      // Если запрошен конкретный топик
+
       if (topic) {
         const topicContent = await getSectionContent(layer, topic, refresh);
-        
-        // Если запрошен конкретный раздел внутри топика
+
         if (section) {
-          // Ищем раздел по заголовку
           const sectionRegex = new RegExp(`##?\\s*${section}[^#]*`, 'i');
           const match = topicContent.match(sectionRegex);
-          
+
           if (match) {
             return match[0].trim();
           }
-          
+
           return `Section "${section}" not found in ${layer}/${topic}`;
         }
-        
+
         return topicContent;
       }
-      
-      // Возвращаем главный файл
+
       const sections = parseSections(mainContent);
       return `${mainContent}\n\n---\nAvailable sections:\n${sections.map(s => `- ${s}`).join('\n')}`;
-      
+
     } catch (error) {
-      throw new Error(
-        `Failed to retrieve documentation for ${layer}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      throw new Error(`Failed to retrieve documentation for ${layer}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 });

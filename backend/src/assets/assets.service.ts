@@ -65,7 +65,7 @@ export class AssetsService {
    * @param createAssetDto DTO с данными для создания актива.
    * @returns Promise с созданным активом.
    */
-  async create(createAssetDto: CreateAssetDto): Promise<Asset> {
+  async create(createAssetDto: CreateAssetDto & { userId?: number }): Promise<Asset> {
     let asset: Asset;
     if (createAssetDto.type === 'crypto') {
       asset = new CryptoAsset();
@@ -79,6 +79,7 @@ export class AssetsService {
       asset.quartChange = 0;
       asset.yearChange = 0;
       asset.totalChange = 0;
+      asset.userId = createAssetDto.userId || 0;
       (asset as CryptoAsset).symbol = createAssetDto.symbol!;
       (asset as CryptoAsset).fullName = createAssetDto.fullName!;
       (asset as CryptoAsset).currentPrice = createAssetDto.currentPrice!;
@@ -94,6 +95,7 @@ export class AssetsService {
       asset.quartChange = 0;
       asset.yearChange = 0;
       asset.totalChange = 0;
+      asset.userId = createAssetDto.userId || 0;
       (asset as NFTAsset).collectionName = createAssetDto.collectionName!;
       (asset as NFTAsset).floorPrice = createAssetDto.floorPrice!;
       (asset as NFTAsset).traitPrice = createAssetDto.traitPrice!;
