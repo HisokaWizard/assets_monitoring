@@ -10,12 +10,27 @@ import { authApi } from '../../../shared/api/auth/authApi';
 
 /**
  * Начальное состояние аутентификации.
+ * Проверяем localStorage на наличие токена при инициализации.
  */
-const initialState: AuthState = {
-  isAuthenticated: false,
-  user: null,
-  token: null,
+const getInitialState = (): AuthState => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      return {
+        isAuthenticated: true,
+        user: null,
+        token,
+      };
+    }
+  }
+  return {
+    isAuthenticated: false,
+    user: null,
+    token: null,
+  };
 };
+
+const initialState: AuthState = getInitialState();
 
 /**
  * Slice для управления аутентификацией.

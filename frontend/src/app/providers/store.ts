@@ -5,6 +5,7 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit';
+import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import { baseApi } from '../../shared/api/base';
 import { authReducer } from '../../features/auth/model';
 
@@ -29,3 +30,13 @@ export type RootState = ReturnType<typeof store.getState>;
  * Тип dispatch.
  */
 export type AppDispatch = typeof store.dispatch;
+
+/**
+ * Типизированный useDispatch хук.
+ */
+export const useAppDispatch: () => AppDispatch = useDispatch;
+
+/**
+ * Типизированный useSelector хук.
+ */
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
