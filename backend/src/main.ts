@@ -9,6 +9,7 @@
  * dependency injection и декораторов. Он позволяет создавать масштабируемые серверные приложения.
  */
 
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -37,7 +38,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  await app.listen(3000);
+  await app.listen(7777);
 }
 
 bootstrap();

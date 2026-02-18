@@ -1,6 +1,14 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
+const dotenv = require('dotenv');
+
+const env = dotenv.config().parsed || {};
+
+const envKeys = Object.keys(env).reduce((prev, next) => {
+  prev[`process.env.${next}`] = JSON.stringify(env[next]);
+  return prev;
+}, {});
 
 module.exports = (env, argv) => {
   const isDevelopment = argv.mode === 'development';
@@ -43,7 +51,10 @@ module.exports = (env, argv) => {
         template: './public/index.html',
       }),
       new webpack.DefinePlugin({
-        'process.env': JSON.stringify({}),
+        'process.env': JSON.stringify({
+          ...envKeys,
+          ...process.env,
+        }),
       }),
     ],
     devServer: {
@@ -52,7 +63,7 @@ module.exports = (env, argv) => {
       },
       historyApiFallback: true,
       hot: true,
-      port: 3000,
+      port: 8888,
       open: true,
     },
     devtool: isDevelopment ? 'eval-source-map' : 'source-map',

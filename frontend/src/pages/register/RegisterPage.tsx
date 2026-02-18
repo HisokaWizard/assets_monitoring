@@ -1,7 +1,7 @@
 /**
- * @fileoverview Страница входа в систему.
+ * @fileoverview Страница регистрации нового пользователя.
  *
- * Форма аутентификации с валидацией и обработкой состояний.
+ * Форма регистрации с валидацией и обработкой состояний.
  */
 
 import React, { useState } from 'react';
@@ -14,16 +14,17 @@ import {
   Button, 
   Alert,
   CircularProgress,
+  MenuItem,
   Link
 } from '@mui/material';
-import { useLogin } from '../../features/auth/hooks';
-import { LoginDto } from '../../shared/api/auth/types';
+import { useRegister } from '../../features/auth/hooks';
+import { RegisterDto } from '../../shared/api/auth/types';
 
-interface LoginPageProps {
+interface RegisterPageProps {
   /**
    * Callback при отправке формы.
    */
-  onSubmit?: (data: LoginDto) => void;
+  onSubmit?: (data: RegisterDto) => void;
   
   /**
    * Флаг загрузки.
@@ -37,19 +38,25 @@ interface LoginPageProps {
 }
 
 /**
- * Страница входа в систему.
+ * Страница регистрации нового пользователя.
  *
- * Отображает форму аутентификации с валидацией.
+ * Отображает форму регистрации с валидацией.
  */
-export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
+export const RegisterPage: React.FC<RegisterPageProps> = ({ onSubmit }) => {
   const navigate = useNavigate();
-  const { login, isLoading, error } = useLogin();
+  const { register, isLoading, error } = useRegister();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('user');
+  const [errors, setErrors] = useState<{ 
+    email?: string; 
+    password?: string; 
+    confirmPassword?: string;
+  }>({});
 
   const validate = (): boolean => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: { email?: string; password?: string; confirmPassword?: string } = {};
     
     if (!email) {
       newErrors.email = 'Email обязателен';
@@ -59,6 +66,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
     
     if (!password) {
       newErrors.password = 'Пароль обязателен';
+    } else if (password.length < 6) {
+      newErrors.password = 'Пароль должен быть минимум 6 символов';
+    }
+    
+    if (!confirmPassword) {
+      newErrors.confirmPassword = 'Подтверждение пароля обязательно';
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Пароли не совпадают';
     }
     
     setErrors(newErrors);
@@ -69,22 +84,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
     e.preventDefault();
     
     if (validate()) {
-      const data = { email, password };
+      const data = { email, password, role };
       
       if (onSubmit) {
         onSubmit(data);
       } else {
         try {
-          await login(data);
-          navigate('/', { replace: true });
+          await register(data);
+          navigate('/login', { replace: true });
         } catch {
-          // Error is handled by useLogin
+          // Error is handled by useRegister
         }
       }
     }
   };
 
-  const displayError = error ? (error as Error).message || 'Ошибка входа' : null;
+  const displayError = error ? (error as Error).message || 'Ошибка регистрации' : null;
 
   return (
     <Box
@@ -105,7 +120,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
         }}
       >
         <Typography variant="h5" component="h1" gutterBottom align="center">
-          Вход в систему
+          Регистрация
         </Typography>
         
         {displayError && (
@@ -139,6 +154,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
             disabled={isLoading}
           />
           
+          <TextField
+            label="Подтверждение пароля"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={Boolean(errors.confirmPassword)}
+            helperText={errors.confirmPassword}
+            fullWidth
+            margin="normal"
+            disabled={isLoading}
+          />
+          
+          <TextField
+            label="Роль"
+            select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            fullWidth
+            margin="normal"
+            disabled={isLoading}
+          >
+            <MenuItem value="user">Пользователь</MenuItem>
+            <MenuItem value="admin">Администратор</MenuItem>
+          </TextField>
+          
           <Button
             type="submit"
             variant="contained"
@@ -147,16 +187,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSubmit }) => {
             sx={{ mt: 3 }}
             startIcon={isLoading ? <CircularProgress size={20} data-testid="circular-progress" /> : null}
           >
-            {isLoading ? 'Вход...' : 'Войти'}
+            {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
           </Button>
 
           <Box sx={{ mt: 2, textAlign: 'center' }}>
             <Link 
-              href="/register" 
+              href="/login" 
               underline="hover"
               sx={{ cursor: 'pointer' }}
             >
-              Нет аккаунта? Зарегистрироваться
+              Уже есть аккаунт? Войти
             </Link>
           </Box>
         </form>
