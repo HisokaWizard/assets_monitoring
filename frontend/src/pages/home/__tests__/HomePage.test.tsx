@@ -1,48 +1,50 @@
-import { render, screen } from '@testing-library/react';
+import { screen, renderWithProviders } from '@shared/test-utils';
 import { HomePage } from '../HomePage';
 
 describe('HomePage', () => {
   it('should render main title', () => {
-    render(<HomePage />);
+    renderWithProviders(<HomePage />);
     expect(screen.getByText('Assets Monitoring')).toBeInTheDocument();
   });
 
   it('should render subtitle with description', () => {
-    render(<HomePage />);
+    renderWithProviders(<HomePage />);
     expect(screen.getByText('Track your cryptocurrency and NFT portfolio')).toBeInTheDocument();
   });
 
-  it('should render welcome message', () => {
-    render(<HomePage />);
-    expect(screen.getByText('Welcome!')).toBeInTheDocument();
+  it('should render NFTs card', () => {
+    renderWithProviders(<HomePage />);
+    expect(screen.getByText('NFTs')).toBeInTheDocument();
+    expect(screen.getByText('View your NFT portfolio')).toBeInTheDocument();
   });
 
-  it('should render list of technologies', () => {
-    render(<HomePage />);
-    expect(screen.getByText('React 18+')).toBeInTheDocument();
-    expect(screen.getByText('TypeScript 5+')).toBeInTheDocument();
-    expect(screen.getByText('Material UI 7')).toBeInTheDocument();
-    expect(screen.getByText('Redux Toolkit')).toBeInTheDocument();
-    expect(screen.getByText('React Router 6')).toBeInTheDocument();
-    expect(screen.getByText('Webpack 5')).toBeInTheDocument();
+  it('should render Tokens card', () => {
+    renderWithProviders(<HomePage />);
+    expect(screen.getByText('Tokens')).toBeInTheDocument();
+    expect(screen.getByText('View your token holdings')).toBeInTheDocument();
   });
 
-  it('should render architecture description', () => {
-    render(<HomePage />);
-    expect(
-      screen.getByText(/Start building your features following the FSD/)
-    ).toBeInTheDocument();
+  it('should render Profile card', () => {
+    renderWithProviders(<HomePage />);
+    expect(screen.getByText('Profile')).toBeInTheDocument();
+    expect(screen.getByText('Manage your account')).toBeInTheDocument();
+  });
+
+  it('should render Logout card', () => {
+    renderWithProviders(<HomePage />);
+    expect(screen.getByText('Logout')).toBeInTheDocument();
+    expect(screen.getByText('Sign out of your account')).toBeInTheDocument();
   });
 
   it('should render in a Container component', () => {
-    render(<HomePage />);
+    renderWithProviders(<HomePage />);
     const container = screen.getByText('Assets Monitoring').closest('.MuiContainer-root');
     expect(container).toBeInTheDocument();
   });
 
-  it('should render in a Paper component', () => {
-    render(<HomePage />);
-    const paper = screen.getByText('Welcome!').closest('.MuiPaper-root');
-    expect(paper).toBeInTheDocument();
+  it('should render 4 navigation cards', () => {
+    renderWithProviders(<HomePage />);
+    const cards = screen.getAllByRole('button');
+    expect(cards.length).toBe(4);
   });
 });

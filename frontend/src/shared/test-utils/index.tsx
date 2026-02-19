@@ -3,9 +3,8 @@ import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { ThemeProvider } from '@mui/material/styles';
 import { MemoryRouter } from 'react-router-dom';
-import { theme } from '../../src/app/styles/theme';
-import { store } from '../../src/app/providers/store';
-import { RootState } from '../../src/app/providers/store';
+import { theme } from '../../app/styles/theme';
+import { store } from '../../app/providers/store';
 
 interface WrapperProps {
   children: ReactNode;
@@ -14,11 +13,9 @@ interface WrapperProps {
 export function renderWithProviders(
   ui: ReactElement,
   {
-    preloadedState = {} as Partial<RootState>,
     initialEntries = ['/'],
     ...renderOptions
   }: {
-    preloadedState?: Partial<RootState>;
     initialEntries?: string[];
   } & Omit<RenderOptions, 'wrapper'> = {}
 ) {

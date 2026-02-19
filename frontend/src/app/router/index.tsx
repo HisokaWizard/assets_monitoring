@@ -8,6 +8,9 @@ import { createBrowserRouter } from 'react-router-dom';
 import { HomePage } from '../../pages/home';
 import { LoginPage } from '../../pages/login';
 import { RegisterPage } from '../../pages/register';
+import { NftsPage } from '../../pages/nfts';
+import { TokensPage } from '../../pages/tokens';
+import { ProfilePage } from '../../pages/profile';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -17,6 +20,18 @@ export const router = createBrowserRouter([
       {
         path: '/',
         element: <HomePage />,
+      },
+      {
+        path: '/nfts',
+        element: <NftsPage />,
+      },
+      {
+        path: '/tokens',
+        element: <TokensPage />,
+      },
+      {
+        path: '/profile',
+        element: <ProfilePage />,
       },
     ],
   },
