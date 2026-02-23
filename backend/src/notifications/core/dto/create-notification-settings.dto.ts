@@ -23,23 +23,26 @@ export class CreateNotificationSettingsDto {
   /**
    * Включены ли уведомления.
    */
+  @IsOptional()
   @IsBoolean()
-  enabled: boolean;
+  enabled?: boolean = true;
 
   /**
    * Порог изменения цены в процентах.
    */
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
-  thresholdPercent: number;
+  thresholdPercent?: number = 10;
 
   /**
    * Интервал проверки в часах (2,4,6,8,10,12).
    */
+  @IsOptional()
   @IsNumber()
   @IsIn([2, 4, 6, 8, 10, 12])
-  intervalHours: number;
+  intervalHours?: number = 4;
 
   /**
    * Интервал обновления в часах.

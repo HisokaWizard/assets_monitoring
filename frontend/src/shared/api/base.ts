@@ -28,5 +28,6 @@ export const baseApi = createApi({
       return headers;
     },
   }),
+  tagTypes: ['UserSettings', 'NotificationSettings'],
   endpoints: () => ({}),
 });

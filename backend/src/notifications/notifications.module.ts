@@ -13,6 +13,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HttpModule } from '@nestjs/axios';
 import { AssetsModule } from '../assets/assets.module';
+import { AuthModule } from '../auth/auth.module';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationService } from './notification.service';
@@ -45,6 +46,7 @@ import { ReportsService } from './reports/reports.service';
     ScheduleModule.forRoot(),
     HttpModule,
     forwardRef(() => AssetsModule),
+    forwardRef(() => AuthModule),
     EmailModule,
     AlertsModule,
     ReportsModule,

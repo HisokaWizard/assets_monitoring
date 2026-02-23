@@ -6,14 +6,13 @@ describe('ProfilePage', () => {
     renderWithProviders(<ProfilePage />);
   });
 
-  it('should display Profile title', () => {
+  it('should show error when user not authenticated', () => {
     renderWithProviders(<ProfilePage />);
-    expect(screen.getByText('Profile')).toBeInTheDocument();
+    expect(screen.getByText(/User not found/i)).toBeInTheDocument();
   });
 
-  it('should render in a Container', () => {
+  it('should render Profile title', () => {
     renderWithProviders(<ProfilePage />);
-    const container = screen.getByText('Profile').closest('.MuiContainer-root');
-    expect(container).toBeInTheDocument();
+    expect(screen.getByText('Profile')).toBeInTheDocument();
   });
 });

@@ -95,8 +95,9 @@ export class NotificationsService {
   /**
    * Удалить настройку уведомлений.
    */
-  async deleteSettings(id: number, userId: number): Promise<void> {
-    await this.settingsRepository.delete({ id, userId });
+  async deleteSettings(id: number, userId: number): Promise<{ deleted: boolean }> {
+    const result = await this.settingsRepository.delete({ id, userId });
+    return { deleted: (result.affected ?? 0) > 0 };
   }
 
   /**

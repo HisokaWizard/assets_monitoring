@@ -7,7 +7,8 @@
  * @Controller('notifications') создает префикс '/notifications' для маршрутов.
  */
 
-import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './core/dto/send-notification.dto';
 import { CreateNotificationSettingsDto } from './core/dto/create-notification-settings.dto';
@@ -38,52 +39,47 @@ export class NotificationsController {
    * Получить настройки уведомлений пользователя.
    */
   @Get('settings')
-  // @UseGuards(JwtAuthGuard)
-  getSettings(/* @GetUser() user: User */) {
-    // Для примера, используем userId = 1
-    const userId = 1;
-    return this.notificationsService.getUserSettings(userId);
+  @UseGuards(AuthGuard('jwt'))
+  getSettings(@Request() req) {
+    return this.notificationsService.getUserSettings(req.user.id);
   }
 
   /**
    * Создать настройку уведомлений.
    */
   @Post('settings')
-  // @UseGuards(JwtAuthGuard)
-  createSettings(/* @GetUser() user: User, */ @Body() dto: CreateNotificationSettingsDto) {
-    const userId = 1;
-    return this.notificationsService.createSettings(userId, dto);
+  @UseGuards(AuthGuard('jwt'))
+  createSettings(@Request() req, @Body() dto: CreateNotificationSettingsDto) {
+    return this.notificationsService.createSettings(req.user.id, dto);
   }
 
   /**
    * Обновить настройку уведомлений.
    */
   @Put('settings/:id')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   updateSettings(
-    /* @GetUser() user: User, */
+    @Request() req,
     @Param('id') id: number,
     @Body() dto: UpdateNotificationSettingsDto,
   ) {
-    const userId = 1;
-    return this.notificationsService.updateSettings(+id, userId, dto);
+    return this.notificationsService.updateSettings(+id, req.user.id, dto);
   }
 
   /**
    * Удалить настройку уведомлений.
    */
   @Delete('settings/:id')
-  // @UseGuards(JwtAuthGuard)
-  deleteSettings(/* @GetUser() user: User, */ @Param('id') id: number) {
-    const userId = 1;
-    return this.notificationsService.deleteSettings(+id, userId);
+  @UseGuards(AuthGuard('jwt'))
+  deleteSettings(@Request() req, @Param('id') id: number) {
+    return this.notificationsService.deleteSettings(+id, req.user.id);
   }
 
   /**
    * Получить исторические цены актива.
    */
   @Get('assets/:id/history')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   getAssetHistory(@Param('id') assetId: number, @Query('limit') limit?: number) {
     return this.notificationsService.getAssetHistory(+assetId, limit ? +limit : 100);
   }
@@ -92,17 +88,16 @@ export class NotificationsController {
    * Сгенерировать отчет.
    */
   @Post('reports/generate')
-  // @UseGuards(JwtAuthGuard)
-  generateReport(/* @GetUser() user: User, */ @Body() dto: GenerateReportDto) {
-    const userId = 1;
-    return this.notificationsService.generateReport(userId, dto);
+  @UseGuards(AuthGuard('jwt'))
+  generateReport(@Request() req, @Body() dto: GenerateReportDto) {
+    return this.notificationsService.generateReport(req.user.id, dto);
   }
 
   /**
    * Ручной запуск обновления активов и уведомлений.
    */
   @Post('assets/update')
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   triggerAssetUpdatesAndNotifications() {
     return this.notificationsService.triggerAssetUpdatesAndNotifications();
   }
@@ -111,9 +106,8 @@ export class NotificationsController {
    * Получить логи уведомлений.
    */
   @Get('logs')
-  // @UseGuards(JwtAuthGuard)
-  getLogs(/* @GetUser() user: User, */ @Query('limit') limit?: number) {
-    const userId = 1;
-    return this.notificationsService.getNotificationLogs(userId, limit ? +limit : 50);
+  @UseGuards(AuthGuard('jwt'))
+  getLogs(@Request() req, @Query('limit') limit?: number) {
+    return this.notificationsService.getNotificationLogs(req.user.id, limit ? +limit : 50);
   }
 }

@@ -55,9 +55,7 @@ describe('UserSettingsController (e2e)', () => {
 
   describe('Authentication', () => {
     it('should return 401 without auth token', () => {
-      return request(app.getHttpServer())
-        .get('/user-settings')
-        .expect(401);
+      return request(app.getHttpServer()).get('/user-settings').expect(401);
     });
 
     it('should return 401 with invalid token', () => {
