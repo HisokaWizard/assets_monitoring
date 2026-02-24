@@ -12,26 +12,32 @@ import { NftsPage } from '../../pages/nfts';
 import { TokensPage } from '../../pages/tokens';
 import { ProfilePage } from '../../pages/profile';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { Layout } from '../components/Layout';
 
 export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
       {
-        path: '/',
-        element: <HomePage />,
-      },
-      {
-        path: '/nfts',
-        element: <NftsPage />,
-      },
-      {
-        path: '/tokens',
-        element: <TokensPage />,
-      },
-      {
-        path: '/profile',
-        element: <ProfilePage />,
+        element: <Layout />,
+        children: [
+          {
+            path: '/',
+            element: <HomePage />,
+          },
+          {
+            path: '/nfts',
+            element: <NftsPage />,
+          },
+          {
+            path: '/tokens',
+            element: <TokensPage />,
+          },
+          {
+            path: '/profile',
+            element: <ProfilePage />,
+          },
+        ],
       },
     ],
   },
