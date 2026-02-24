@@ -177,14 +177,16 @@ describe('UserSettingsController (e2e)', () => {
         .expect(400);
     });
 
-    it('should return 404 when settings do not exist', async () => {
-      await request(app.getHttpServer())
+    it('should create settings if not found', async () => {
+      const response = await request(app.getHttpServer())
         .patch('/user-settings')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           coinmarketcapApiKey: 'some-key-32-chars-long-minimum',
         })
-        .expect(404);
+        .expect(200);
+
+      expect(response.body.coinmarketcapApiKey).toBe('some-key-32-chars-long-minimum');
     });
   });
 

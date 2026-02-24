@@ -7,7 +7,7 @@
  * Используется для регистрации, входа в систему и управления доступом.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
  * Сущность пользователя.
@@ -50,8 +50,20 @@ export class User {
    * Определяет уровень доступа (например, "user", "admin").
    * Используется для авторизации и контроля доступа к ресурсам.
    */
-  @Column()
+  @Column({ default: 'user' })
   role: string; // e.g., user, admin
+
+  /**
+   * Дата создания пользователя.
+   */
+  @CreateDateColumn()
+  createdAt: Date;
+
+  /**
+   * Дата обновления пользователя.
+   */
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   /**
    * Время последнего обновления активов.

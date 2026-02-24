@@ -16,6 +16,11 @@ export interface AuthState {
   isAuthenticated: boolean;
 
   /**
+   * Флаг загрузки при инициализации.
+   */
+  isLoading: boolean;
+
+  /**
    * Данные текущего пользователя.
    */
   user: User | null;

@@ -110,4 +110,13 @@ export class NotificationsController {
   getLogs(@Request() req, @Query('limit') limit?: number) {
     return this.notificationsService.getNotificationLogs(req.user.id, limit ? +limit : 50);
   }
+
+  /**
+   * Очистить дубликаты настроек.
+   */
+  @Post('settings/cleanup')
+  @UseGuards(AuthGuard('jwt'))
+  cleanupSettings(@Request() req) {
+    return this.notificationsService.cleanupDuplicateSettings(req.user.id);
+  }
 }

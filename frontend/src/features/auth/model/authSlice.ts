@@ -18,6 +18,7 @@ const getInitialState = (): AuthState => {
     if (token) {
       return {
         isAuthenticated: true,
+        isLoading: true,
         user: null,
         token,
       };
@@ -25,6 +26,7 @@ const getInitialState = (): AuthState => {
   }
   return {
     isAuthenticated: false,
+    isLoading: false,
     user: null,
     token: null,
   };
@@ -50,6 +52,7 @@ export const authSlice = createSlice({
       state.token = token;
       state.user = user;
       state.isAuthenticated = true;
+      state.isLoading = false;
       localStorage.setItem('access_token', token);
     },
 
@@ -62,10 +65,41 @@ export const authSlice = createSlice({
       state.token = null;
       state.user = null;
       state.isAuthenticated = false;
+      state.isLoading = false;
       localStorage.removeItem('access_token');
+    },
+
+    setAuthLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
     },
   },
   extraReducers: (builder) => {
+    /**
+     * Обработка успешного получения текущего пользователя.
+     */
+    builder.addMatcher(
+      authApi.endpoints.me.matchFulfilled,
+      (state, { payload }) => {
+        state.user = payload;
+        state.isAuthenticated = true;
+        state.isLoading = false;
+      }
+    );
+
+    /**
+     * Обработка ошибки при получении текущего пользователя.
+     */
+    builder.addMatcher(
+      authApi.endpoints.me.matchRejected,
+      (state) => {
+        state.user = null;
+        state.isAuthenticated = false;
+        state.token = null;
+        state.isLoading = false;
+        localStorage.removeItem('access_token');
+      }
+    );
+
     /**
      * Обработка успешного входа через API.
      */
@@ -74,6 +108,7 @@ export const authSlice = createSlice({
       (state, { payload }) => {
         state.token = payload.access_token;
         state.isAuthenticated = true;
+        state.isLoading = false;
         localStorage.setItem('access_token', payload.access_token);
       }
     );
@@ -93,7 +128,7 @@ export const authSlice = createSlice({
 /**
  * Экшен для установки учетных данных.
  */
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, logout, setAuthLoading } = authSlice.actions;
 
 /**
  * Редьюсер аутентификации.

@@ -8,7 +8,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
 import { UserSettingsService } from './user-settings.service';
 import { UserSettings } from './core/entities/user-settings.entity';
 import { CreateUserSettingsDto, UpdateUserSettingsDto } from './core/dto';
@@ -23,6 +22,8 @@ describe('UserSettingsService', () => {
     email: 'test@example.com',
     password: 'hashed',
     role: 'user',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     lastUpdated: null,
   };
 
@@ -188,12 +189,21 @@ describe('UserSettingsService', () => {
       expect(mockRepository.update).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException if settings not found', async () => {
+    it('should create settings if not found', async () => {
+      const plainKey = 'new-key-32-chars-long';
+      const encryptedKey = await (service as any).encrypt(plainKey);
+
       mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.create.mockReturnValue({ userId: 1 });
+      mockRepository.save.mockResolvedValue({ id: 1, userId: 1, coinmarketcapApiKey: encryptedKey, openseaApiKey: encryptedKey });
 
-      const dto: UpdateUserSettingsDto = {};
+      const dto: UpdateUserSettingsDto = { coinmarketcapApiKey: plainKey };
 
-      await expect(service.updateSettings(mockUser, dto)).rejects.toThrow(NotFoundException);
+      const result = await service.updateSettings(mockUser, dto);
+
+      expect(result).toBeDefined();
+      expect(mockRepository.create).toHaveBeenCalled();
+      expect(mockRepository.save).toHaveBeenCalled();
     });
 
     it('should handle partial update', async () => {

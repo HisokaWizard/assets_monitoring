@@ -12,6 +12,8 @@ describe('AuthController', () => {
     email: 'test@example.com',
     password: 'hashedPassword123',
     role: 'user',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     lastUpdated: new Date(),
   };
 

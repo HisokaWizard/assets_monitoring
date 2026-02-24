@@ -2,15 +2,15 @@
  * @fileoverview DTO для регистрации пользователя.
  *
  * Этот файл определяет структуру данных для запросов на регистрацию новых пользователей.
- * Включает валидацию email, пароля и роли с помощью декораторов class-validator.
+ * Включает валидацию email и пароля с помощью декораторов class-validator.
  */
 
-import { IsEmail, IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
 
 /**
  * DTO для регистрации пользователя.
  *
- * Определяет обязательные поля для создания нового аккаунта пользователя.
+ * Определяет обязательные поляого аккаун для создания новта пользователя.
  * Все поля проходят строгую валидацию для обеспечения корректности данных.
  */
 export class RegisterDto {
@@ -38,8 +38,9 @@ export class RegisterDto {
    * Роль пользователя в системе.
    *
    * Определяет уровень доступа нового пользователя.
+   * Необязательное поле, по умолчанию 'user'.
    */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  role: string;
+  role?: string;
 }

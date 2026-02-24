@@ -40,9 +40,9 @@ export interface RegisterDto {
   password: string;
 
   /**
-   * Роль пользователя ('user' | 'admin').
+   * Роль пользователя (необязательно).
    */
-  role: string;
+  role?: string;
 }
 
 /**

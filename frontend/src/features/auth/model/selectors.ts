@@ -13,6 +13,12 @@ export const selectIsAuthenticated = (state: RootState): boolean =>
   state.auth.isAuthenticated;
 
 /**
+ * Получение состояния загрузки аутентификации.
+ */
+export const selectIsAuthLoading = (state: RootState): boolean =>
+  state.auth.isLoading;
+
+/**
  * Получение данных текущего пользователя.
  */
 export const selectUser = (state: RootState) => state.auth.user;

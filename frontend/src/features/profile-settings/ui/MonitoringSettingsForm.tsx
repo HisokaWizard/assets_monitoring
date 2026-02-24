@@ -4,7 +4,7 @@
  * Позволяет управлять настройками мониторинга для Crypto и NFT раздельно.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -20,7 +20,9 @@ import {
   Typography,
   CircularProgress,
   Grid,
+  Button,
 } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
 import {
   NotificationSettings,
   AssetType,
@@ -69,45 +71,58 @@ const SettingsSection: React.FC<{
   onCreate: (assetType: AssetType) => Promise<void>;
   isLoading?: boolean;
 }> = ({ title, assetType, settings, onUpdate, onCreate, isLoading }) => {
-  const [localEnabled, setLocalEnabled] = React.useState(settings?.enabled ?? true);
-  const [localThreshold, setLocalThreshold] = React.useState(settings?.thresholdPercent ?? 10);
-  const [localInterval, setLocalInterval] = React.useState(settings?.updateIntervalHours ?? 4);
+  const [localEnabled, setLocalEnabled] = useState(settings?.enabled ?? true);
+  const [localThreshold, setLocalThreshold] = useState(settings?.thresholdPercent ?? 10);
+  const [localInterval, setLocalInterval] = useState(settings?.updateIntervalHours ?? 4);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (settings) {
       setLocalEnabled(settings.enabled);
       setLocalThreshold(settings.thresholdPercent);
       setLocalInterval(settings.updateIntervalHours);
+      setHasChanges(false);
     }
   }, [settings]);
 
-  const handleEnabledChange = async (enabled: boolean) => {
-    setLocalEnabled(enabled);
-    if (settings) {
-      await onUpdate(settings.id, { enabled });
-    }
-  };
-
-  const handleThresholdChange = async (_: Event, value: number | number[]) => {
-    const threshold = Array.isArray(value) ? value[0] : value;
-    setLocalThreshold(threshold);
-    if (settings) {
-      await onUpdate(settings.id, { thresholdPercent: threshold });
-    }
-  };
-
-  const handleIntervalChange = async (interval: number) => {
-    setLocalInterval(interval);
-    if (settings) {
-      await onUpdate(settings.id, { updateIntervalHours: interval });
-    }
-  };
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!settings) {
       onCreate(assetType);
     }
   }, [settings, assetType, onCreate]);
+
+  const handleEnabledChange = (enabled: boolean) => {
+    setLocalEnabled(enabled);
+    if (settings) {
+      setHasChanges(true);
+    }
+  };
+
+  const handleThresholdChange = (_: Event, value: number | number[]) => {
+    const threshold = Array.isArray(value) ? value[0] : value;
+    setLocalThreshold(threshold);
+    if (settings) {
+      setHasChanges(true);
+    }
+  };
+
+  const handleIntervalChange = (interval: number) => {
+    setLocalInterval(interval);
+    if (settings) {
+      setHasChanges(true);
+    }
+  };
+
+  const handleSave = async () => {
+    if (settings) {
+      await onUpdate(settings.id, {
+        enabled: localEnabled,
+        thresholdPercent: localThreshold,
+        updateIntervalHours: localInterval,
+      });
+      setHasChanges(false);
+    }
+  };
 
   return (
     <Card sx={{ mb: 2 }}>
@@ -173,6 +188,20 @@ const SettingsSection: React.FC<{
                 How often to check for price updates
               </Typography>
             </Grid>
+
+            {settings && hasChanges && (
+              <Grid item xs={12}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  disabled={isLoading}
+                >
+                  Save {title} Settings
+                </Button>
+              </Grid>
+            )}
           </Grid>
         )}
       </CardContent>

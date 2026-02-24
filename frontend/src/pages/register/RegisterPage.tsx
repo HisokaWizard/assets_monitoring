@@ -14,7 +14,6 @@ import {
   Button, 
   Alert,
   CircularProgress,
-  MenuItem,
   Link
 } from '@mui/material';
 import { useRegister } from '../../features/auth/hooks';
@@ -48,7 +47,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('user');
   const [errors, setErrors] = useState<{ 
     email?: string; 
     password?: string; 
@@ -84,7 +82,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSubmit }) => {
     e.preventDefault();
     
     if (validate()) {
-      const data = { email, password, role };
+      const data = { email, password };
       
       if (onSubmit) {
         onSubmit(data);
@@ -165,19 +163,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSubmit }) => {
             margin="normal"
             disabled={isLoading}
           />
-          
-          <TextField
-            label="Роль"
-            select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled={isLoading}
-          >
-            <MenuItem value="user">Пользователь</MenuItem>
-            <MenuItem value="admin">Администратор</MenuItem>
-          </TextField>
           
           <Button
             type="submit"

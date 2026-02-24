@@ -5,10 +5,10 @@ import { configureStore } from '@reduxjs/toolkit';
 import { authReducer } from '../../../features/auth/model';
 import { ProtectedRoute } from '../ProtectedRoute';
 
-const createTestStore = (isAuth: boolean) => configureStore({
+const createTestStore = (isAuth: boolean, isAuthLoading = false) => configureStore({
   reducer: { auth: authReducer },
   preloadedState: {
-    auth: { isAuthenticated: isAuth, user: null, token: null }
+    auth: { isAuthenticated: isAuth, isLoading: isAuthLoading, user: null, token: null }
   }
 });
 

@@ -5,7 +5,7 @@
  * Шифрует ключи перед сохранением и дешифрует при чтении.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
@@ -81,12 +81,13 @@ export class UserSettingsService {
     user: User,
     dto: UpdateUserSettingsDto,
   ): Promise<UserSettings> {
-    const settings = await this.userSettingsRepository.findOne({
+    let settings = await this.userSettingsRepository.findOne({
       where: { userId: user.id },
     });
 
     if (!settings) {
-      throw new NotFoundException('User settings not found');
+      settings = await this.createSettings(user, dto);
+      return settings;
     }
 
     // Шифруем ключи

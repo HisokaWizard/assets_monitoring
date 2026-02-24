@@ -33,7 +33,7 @@ import { User } from './user.entity';
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'secret',
-      signOptions: { expiresIn: '60m' },
+      signOptions: { expiresIn: '2h' },
     }),
   ],
   controllers: [AuthController],

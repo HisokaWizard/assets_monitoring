@@ -7,6 +7,14 @@
 import { baseApi } from '../base';
 import { LoginDto, RegisterDto, LoginResponse, RegisterResponse } from './types';
 
+interface MeResponse {
+  id: number;
+  email: string;
+  role: 'user' | 'admin';
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * API аутентификации.
  *
@@ -14,6 +22,16 @@ import { LoginDto, RegisterDto, LoginResponse, RegisterResponse } from './types'
  */
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    /**
+     * Получить текущего пользователя.
+     */
+    me: builder.query<MeResponse, void>({
+      query: () => ({
+        url: '/auth/me',
+        method: 'GET',
+      }),
+    }),
+
     /**
      * Вход пользователя в систему.
      *
@@ -43,6 +61,8 @@ export const authApi = baseApi.injectEndpoints({
     }),
   }),
 });
+
+export const { useMeQuery } = authApi;
 
 /**
  * Хук для выполнения входа.

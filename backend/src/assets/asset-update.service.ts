@@ -15,6 +15,7 @@ import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
 import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
+import { UserSettingsService } from '../user-settings/user-settings.service';
 
 /**
  * Сервис для обновления активов.
@@ -36,6 +37,7 @@ export class AssetUpdateService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(NotificationSettings)
     private readonly notificationSettingsRepository: Repository<NotificationSettings>,
+    private readonly userSettingsService: UserSettingsService,
   ) {}
 
   /**
@@ -61,7 +63,19 @@ export class AssetUpdateService {
     }
 
     for (const [userId, userSettings] of userSettingsMap) {
-      const user = userSettings[0].user; // Все настройки имеют одного пользователя
+      const user = userSettings[0].user;
+
+      // Получить API ключи пользователя (дешифрованные)
+      const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
+
+      const coinmarketcapApiKey = userSettingsData?.coinmarketcapApiKey;
+      const openseaApiKey = userSettingsData?.openseaApiKey;
+
+      // Пропустить если нет API ключей
+      if (!coinmarketcapApiKey && !openseaApiKey) {
+        this.logger.warn(`У пользователя ${userId} нет сохраненных API ключей, пропускаем обновление`);
+        continue;
+      }
 
       // Определить интервал: максимальный из настроек или 4 часа по умолчанию
       const intervalHours =
@@ -79,9 +93,9 @@ export class AssetUpdateService {
         for (const asset of assets) {
           try {
             if (asset instanceof CryptoAsset) {
-              await this.updateCryptoAsset(asset);
+              await this.updateCryptoAsset(asset, coinmarketcapApiKey || undefined);
             } else if (asset instanceof NFTAsset) {
-              await this.updateNFTAsset(asset);
+              await this.updateNFTAsset(asset, openseaApiKey || undefined);
             }
             updatedAssetIds.push(asset.id);
           } catch (error) {
@@ -101,8 +115,8 @@ export class AssetUpdateService {
   /**
    * Обновить криптоактив.
    */
-  private async updateCryptoAsset(asset: CryptoAsset): Promise<void> {
-    const currentPrice = await this.fetchFromCoinMarketCap(asset.symbol);
+  private async updateCryptoAsset(asset: CryptoAsset, apiKey?: string): Promise<void> {
+    const currentPrice = await this.fetchFromCoinMarketCap(asset.symbol, apiKey);
     if (currentPrice) {
       asset.currentPrice = currentPrice;
       await this.calculateChanges(asset);
@@ -114,8 +128,8 @@ export class AssetUpdateService {
   /**
    * Обновить NFT актив.
    */
-  private async updateNFTAsset(asset: NFTAsset): Promise<void> {
-    const floorPrice = await this.fetchFromOpenSea(asset.collectionName);
+  private async updateNFTAsset(asset: NFTAsset, apiKey?: string): Promise<void> {
+    const floorPrice = await this.fetchFromOpenSea(asset.collectionName, apiKey);
     if (floorPrice) {
       asset.floorPrice = floorPrice;
       await this.calculateChanges(asset);
@@ -127,10 +141,10 @@ export class AssetUpdateService {
   /**
    * Получить данные из CoinMarketCap API.
    */
-  private async fetchFromCoinMarketCap(symbol: string): Promise<number | null> {
+  private async fetchFromCoinMarketCap(symbol: string, apiKey?: string): Promise<number | null> {
     try {
-      const apiKey = process.env.COINMARKETCAP_API_KEY;
-      if (!apiKey) {
+      const key = apiKey || process.env.COINMARKETCAP_API_KEY;
+      if (!key) {
         this.logger.warn('CoinMarketCap API key не установлен');
         return null;
       }
@@ -138,7 +152,7 @@ export class AssetUpdateService {
       const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
       const response = await firstValueFrom(
         this.httpService.get(url, {
-          headers: { 'X-CMC_PRO_API_KEY': apiKey },
+          headers: { 'X-CMC_PRO_API_KEY': key },
         }),
       );
 
@@ -153,10 +167,10 @@ export class AssetUpdateService {
   /**
    * Получить данные из OpenSea API.
    */
-  private async fetchFromOpenSea(collectionName: string): Promise<number | null> {
+  private async fetchFromOpenSea(collectionName: string, apiKey?: string): Promise<number | null> {
     try {
-      const apiKey = process.env.OPENSEA_API_KEY;
-      if (!apiKey) {
+      const key = apiKey || process.env.OPENSEA_API_KEY;
+      if (!key) {
         this.logger.warn('OpenSea API key не установлен');
         return null;
       }
@@ -164,7 +178,7 @@ export class AssetUpdateService {
       const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
       const response = await firstValueFrom(
         this.httpService.get(url, {
-          headers: { 'X-API-KEY': apiKey },
+          headers: { 'X-API-KEY': key },
         }),
       );
 

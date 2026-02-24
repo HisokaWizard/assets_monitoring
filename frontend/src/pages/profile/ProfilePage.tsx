@@ -37,6 +37,10 @@ export const ProfilePage: React.FC = () => {
   const isLoading = userSettings.isLoading || notificationSettings.isLoading;
   const error = userSettings.error || notificationSettings.error;
 
+  const hasApiKeys = Boolean(
+    userSettings.data?.coinmarketcapApiKey || userSettings.data?.openseaApiKey
+  );
+
   return (
     <Container maxWidth="lg">
       <Box sx={{ mt: 4, mb: 4 }}>
@@ -69,6 +73,13 @@ export const ProfilePage: React.FC = () => {
                   onSubmit={updateUserSettings}
                   isLoading={userSettings.isLoading}
                 />
+
+                {!hasApiKeys && (
+                  <Alert severity="info" sx={{ mt: 3 }}>
+                    Для работы системы мониторинга активов необходимо сохранить API ключи CoinMarketCap и/или OpenSea. 
+                    Без них обновление цен и уведомления работать не будут.
+                  </Alert>
+                )}
 
                 <Box sx={{ mt: 3 }}>
                   <MonitoringSettingsForm

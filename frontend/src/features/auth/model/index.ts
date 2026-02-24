@@ -5,5 +5,5 @@
  */
 
 export type { AuthState, SetCredentialsPayload } from './types';
-export { authSlice, authReducer, setCredentials, logout } from './authSlice';
-export { selectIsAuthenticated, selectUser, selectToken } from './selectors';
+export { authSlice, authReducer, setCredentials, logout, setAuthLoading } from './authSlice';
+export { selectIsAuthenticated, selectIsAuthLoading, selectUser, selectToken } from './selectors';

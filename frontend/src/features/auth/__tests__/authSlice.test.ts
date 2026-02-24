@@ -4,6 +4,7 @@ import { AuthState } from '../model/types';
 describe('authSlice', () => {
   const initialState: AuthState = {
     isAuthenticated: false,
+    isLoading: false,
     user: null,
     token: null,
   };
@@ -50,6 +51,7 @@ describe('authSlice', () => {
     it('should clear authentication state', () => {
       const authenticatedState: AuthState = {
         isAuthenticated: true,
+        isLoading: false,
         token: 'test-token',
         user: {
           id: 1,
@@ -73,6 +75,7 @@ describe('authSlice', () => {
       authSlice.reducer(
         {
           isAuthenticated: true,
+          isLoading: false,
           token: 'test-token',
           user: null,
         },

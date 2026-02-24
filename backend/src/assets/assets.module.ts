@@ -20,6 +20,8 @@ import { Asset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
 import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
+import { UserSettings } from '../user-settings/core/entities/user-settings.entity';
+import { UserSettingsModule } from '../user-settings/user-settings.module';
 
 /**
  * Модуль активов.
@@ -34,8 +36,9 @@ import { NotificationSettings } from '../notifications/core/entities/notificatio
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Asset, HistoricalPrice, User, NotificationSettings]),
+    TypeOrmModule.forFeature([Asset, HistoricalPrice, User, NotificationSettings, UserSettings]),
     HttpModule,
+    UserSettingsModule,
   ],
   controllers: [AssetsController],
   providers: [AssetsService, AssetUpdateService],

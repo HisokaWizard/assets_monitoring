@@ -4,7 +4,7 @@
  * Позволяет редактировать ключи CoinMarketCap и OpenSea.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -71,6 +71,15 @@ export const ApiKeysForm: React.FC<ApiKeysFormProps> = ({
 
   const hasExistingCoinmarketcap = Boolean(initialData?.coinmarketcapApiKey);
   const hasExistingOpensea = Boolean(initialData?.openseaApiKey);
+
+  useEffect(() => {
+    if (initialData?.coinmarketcapApiKey) {
+      setCoinmarketcapKey(initialData.coinmarketcapApiKey);
+    }
+    if (initialData?.openseaApiKey) {
+      setOpenseaKey(initialData.openseaApiKey);
+    }
+  }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -39,6 +39,19 @@ export class AuthService {
   ) {}
 
   /**
+   * Получить текущего пользователя.
+   */
+  async getMe(userId: number): Promise<Omit<User, 'password'>> {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...result } = user;
+    return result as Omit<User, 'password'>;
+  }
+
+  /**
    * Регистрация нового пользователя.
    *
    * Хэширует пароль, создает пользователя и сохраняет в базу данных.
@@ -83,5 +96,13 @@ export class AuthService {
       };
     }
     throw new UnauthorizedException('Invalid credentials');
+  }
+
+  /**
+   * Сбросить роль всех пользователей на 'user'.
+   */
+  async resetAllUserRoles(): Promise<{ updated: number }> {
+    const result = await this.usersRepository.update({}, { role: 'user' });
+    return { updated: result.affected || 0 };
   }
 }

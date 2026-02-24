@@ -58,21 +58,68 @@ export class NotificationsService {
 
   /**
    * Получить настройки уведомлений пользователя.
+   * Возвращает только последние настройки для каждого assetType.
    */
   async getUserSettings(userId: number): Promise<NotificationSettings[]> {
-    return this.settingsRepository.find({
+    const settings = await this.settingsRepository.find({
       where: { userId },
-      order: { assetType: 'ASC' },
+      order: { assetType: 'ASC', id: 'DESC' },
     });
+
+    const uniqueByAssetType = settings.reduce((acc, curr) => {
+      if (!acc[curr.assetType]) {
+        acc[curr.assetType] = curr;
+      }
+      return acc;
+    }, {} as Record<string, NotificationSettings>);
+
+    return Object.values(uniqueByAssetType);
+  }
+
+  /**
+   * Удалить дубликаты настроек для пользователя.
+   */
+  async cleanupDuplicateSettings(userId: number): Promise<number> {
+    const allSettings = await this.settingsRepository.find({
+      where: { userId },
+      order: { id: 'DESC' },
+    });
+
+    const toDelete: number[] = [];
+    const seen = new Set<string>();
+
+    for (const setting of allSettings) {
+      const key = setting.assetType;
+      if (seen.has(key)) {
+        toDelete.push(setting.id);
+      } else {
+        seen.add(key);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      await this.settingsRepository.delete(toDelete);
+    }
+
+    return toDelete.length;
   }
 
   /**
    * Создать настройку уведомлений.
+   * Если настройки для этого assetType уже существуют - возвращает их.
    */
   async createSettings(
     userId: number,
     dto: CreateNotificationSettingsDto,
   ): Promise<NotificationSettings> {
+    const existing = await this.settingsRepository.findOne({
+      where: { userId, assetType: dto.assetType },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
     const settings = this.settingsRepository.create({
       userId,
       ...dto,
