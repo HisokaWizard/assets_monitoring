@@ -7,9 +7,9 @@ export const Footer: React.FC = () => {
     <Box
       component="footer"
       sx={{
+        flexShrink: 0,
         py: 1.5,
         px: 2,
-        mt: 'auto',
         borderTop: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.paper',

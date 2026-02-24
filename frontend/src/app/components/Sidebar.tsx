@@ -45,6 +45,7 @@ export const Sidebar: React.FC = () => {
       sx={{
         width: isOpen ? 200 : 56,
         flexShrink: 0,
+        height: '100%',
         borderRight: '1px solid',
         borderColor: 'divider',
         display: 'flex',

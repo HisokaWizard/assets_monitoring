@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Breadcrumbs as MuiBreadcrumbs, Link as MuiLink, Typography } from '@mui/material';
+import { Breadcrumbs as MuiBreadcrumbs, Link as MuiLink, Typography, Box } from '@mui/material';
 import { NavigateNext } from '@mui/icons-material';
 
 interface BreadcrumbItem {
@@ -35,48 +35,54 @@ export const Breadcrumbs: React.FC = () => {
   }
 
   return (
-    <MuiBreadcrumbs
-      separator={<NavigateNext fontSize="small" />}
-      aria-label="breadcrumb"
-      sx={{ mb: 2 }}
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        py: 0.5,
+        px: 1,
+      }}
     >
-      <MuiLink
-        component={Link}
-        to="/"
-        underline="hover"
-        color="inherit"
-        sx={{ display: 'flex', alignItems: 'center' }}
-      >
-        Home
-      </MuiLink>
-      {breadcrumbs.map((breadcrumb, index) => {
-        const isLast = index === breadcrumbs.length - 1;
+      <MuiBreadcrumbs separator={<NavigateNext fontSize='small' />} aria-label='breadcrumb'>
+        <MuiLink
+          component={Link}
+          to='/'
+          underline='hover'
+          color='inherit'
+          sx={{ display: 'flex', alignItems: 'center' }}
+        >
+          Home
+        </MuiLink>
+        {breadcrumbs.map((breadcrumb, index) => {
+          const isLast = index === breadcrumbs.length - 1;
 
-        if (isLast) {
+          if (isLast) {
+            return (
+              <Typography
+                key={breadcrumb.path}
+                color='text.primary'
+                sx={{ display: 'flex', alignItems: 'center' }}
+              >
+                {breadcrumb.label}
+              </Typography>
+            );
+          }
+
           return (
-            <Typography
+            <MuiLink
               key={breadcrumb.path}
-              color="text.primary"
+              component={Link}
+              to={breadcrumb.path}
+              underline='hover'
+              color='inherit'
               sx={{ display: 'flex', alignItems: 'center' }}
             >
               {breadcrumb.label}
-            </Typography>
+            </MuiLink>
           );
-        }
-
-        return (
-          <MuiLink
-            key={breadcrumb.path}
-            component={Link}
-            to={breadcrumb.path}
-            underline="hover"
-            color="inherit"
-            sx={{ display: 'flex', alignItems: 'center' }}
-          >
-            {breadcrumb.label}
-          </MuiLink>
-        );
-      })}
-    </MuiBreadcrumbs>
+        })}
+      </MuiBreadcrumbs>
+    </Box>
   );
 };

@@ -7,34 +7,31 @@ import { Footer } from './Footer';
 
 export const Layout: React.FC = () => {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar />
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <Sidebar />
+      <Box
+        component='main'
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ flexShrink: 0, px: 0, pb: 1 }}>
+          <Breadcrumbs />
+        </Box>
         <Box
-          component="main"
           sx={{
             flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
+            overflow: 'auto',
+            px: 3,
           }}
         >
-          <Box sx={{ flexShrink: 0, p: 3, pb: 1 }}>
-            <Breadcrumbs />
-          </Box>
-          <Box
-            sx={{
-              flexGrow: 1,
-              overflow: 'auto',
-              p: 3,
-              pt: 0,
-            }}
-          >
-            <Outlet />
-          </Box>
+          <Outlet />
         </Box>
+        <Footer />
       </Box>
-      <Footer />
     </Box>
   );
 };
