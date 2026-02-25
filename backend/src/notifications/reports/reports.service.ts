@@ -33,6 +33,17 @@ export class ReportsService {
   ) {}
 
   /**
+   * Генерация отчета для конкретного пользователя.
+   *
+   * @param userId ID пользователя
+   * @param period Период отчета ('daily', 'weekly', 'monthly', 'quarterly', 'yearly')
+   */
+  async generateUserReport(userId: number, period: string): Promise<void> {
+    this.logger.log(`Generating ${period} report for user ${userId}`);
+    await this.generateUserPeriodicReport(userId, period);
+  }
+
+  /**
    * Генерация периодических отчетов.
    *
    * @param period Период отчета ('daily', 'weekly', etc.)
@@ -77,6 +88,8 @@ export class ReportsService {
       const lastPrice = this.getLastPriceForPeriod(asset, period);
       const currentPrice = this.getCurrentPrice(asset);
 
+      if (!currentPrice) continue;
+
       let change = 0;
       if (lastPrice && lastPrice !== 0) {
         change = ((currentPrice - lastPrice) / lastPrice) * 100;
@@ -95,6 +108,11 @@ export class ReportsService {
         change,
         totalValue,
       });
+    }
+
+    if (reportData.length === 0) {
+      this.logger.warn(`No valid assets with prices for user ${userId}`);
+      return;
     }
 
     // Сохраняем обновленные активы
@@ -203,8 +221,13 @@ export class ReportsService {
    * @param asset Актив
    * @returns Текущая цена
    */
-  private getCurrentPrice(asset: Asset): number {
-    return asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
+  private getCurrentPrice(asset: Asset): number | null {
+    if (asset.type === 'crypto') {
+      return (asset as CryptoAsset).currentPrice || null;
+    } else if (asset.type === 'nft') {
+      return (asset as NFTAsset).floorPrice || null;
+    }
+    return null;
   }
 
   /**
@@ -224,6 +247,10 @@ export class ReportsService {
     }>,
     period: string,
   ): string {
+    if (!reportData || reportData.length === 0) {
+      return `Portfolio ${period.charAt(0).toUpperCase() + period.slice(1)} Report\n\nNo assets with valid prices to report.`;
+    }
+
     let message = `Portfolio ${
       period.charAt(0).toUpperCase() + period.slice(1)
     } Report - All Assets:\n\n`;
@@ -231,12 +258,16 @@ export class ReportsService {
     let totalPortfolioValue = 0;
 
     for (const item of reportData) {
-      message += `${item.type}: ${item.name}\n`;
-      message += `  Current Price: $${item.currentPrice.toFixed(2)}\n`;
-      message += `  Change: ${item.change.toFixed(2)}%\n`;
-      message += `  Total Value: $${item.totalValue.toFixed(2)}\n\n`;
+      const price = item.currentPrice ?? 0;
+      const change = item.change ?? 0;
+      const value = item.totalValue ?? 0;
 
-      totalPortfolioValue += item.totalValue;
+      message += `${item.type}: ${item.name}\n`;
+      message += `  Current Price: $${price.toFixed(2)}\n`;
+      message += `  Change: ${change.toFixed(2)}%\n`;
+      message += `  Total Value: $${value.toFixed(2)}\n\n`;
+
+      totalPortfolioValue += value;
     }
 
     message += `Total Portfolio Value: $${totalPortfolioValue.toFixed(2)}\n\n`;

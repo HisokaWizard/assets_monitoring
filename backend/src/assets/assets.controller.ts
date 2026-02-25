@@ -109,4 +109,16 @@ export class AssetsController {
     }
     return this.assetsService.remove(+id);
   }
+
+  /**
+   * Обновить все активы пользователя.
+   *
+   * @param req Запрос с пользователем из JWT токена.
+   * @returns Массив обновлённых активов.
+   * @Post('refresh') обрабатывает POST запросы на '/assets/refresh'.
+   */
+  @Post('refresh')
+  refreshAll(@Request() req) {
+    return this.assetsService.refreshAll(req.user.id);
+  }
 }

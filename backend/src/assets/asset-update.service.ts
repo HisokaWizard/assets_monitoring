@@ -112,6 +112,36 @@ export class AssetUpdateService {
     return updatedAssetIds;
   }
 
+  async updateAssetsForUser(userId: number): Promise<number[]> {
+    const updatedAssetIds: number[] = [];
+    const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
+
+    const coinmarketcapApiKey = userSettingsData?.coinmarketcapApiKey;
+    const openseaApiKey = userSettingsData?.openseaApiKey;
+
+    if (!coinmarketcapApiKey && !openseaApiKey) {
+      this.logger.warn(`У пользователя ${userId} нет сохраненных API ключей`);
+      return updatedAssetIds;
+    }
+
+    const assets = await this.assetsRepository.find({ where: { userId } });
+
+    for (const asset of assets) {
+      try {
+        if (asset instanceof CryptoAsset) {
+          await this.updateCryptoAsset(asset, coinmarketcapApiKey || undefined);
+        } else if (asset instanceof NFTAsset) {
+          await this.updateNFTAsset(asset, openseaApiKey || undefined);
+        }
+        updatedAssetIds.push(asset.id);
+      } catch (error) {
+        this.logger.error(`Ошибка обновления актива ${asset.id}: ${error.message}`);
+      }
+    }
+
+    return updatedAssetIds;
+  }
+
   /**
    * Обновить криптоактив.
    */

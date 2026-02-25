@@ -2,7 +2,7 @@
  * @fileoverview DTO для генерации отчета.
  *
  * Этот файл определяет структуру данных для запроса генерации отчета.
- * Включает опциональный тип отчета.
+ * Включает тип отчета и период.
  */
 
 import { IsOptional, IsString, IsIn } from 'class-validator';
@@ -20,4 +20,12 @@ export class GenerateReportDto {
   @IsString()
   @IsIn(['changes', 'full'])
   type?: string;
+
+  /**
+   * Период отчета.
+   */
+  @IsOptional()
+  @IsString()
+  @IsIn(['daily', 'weekly', 'monthly', 'quarterly', 'yearly'])
+  period?: string;
 }

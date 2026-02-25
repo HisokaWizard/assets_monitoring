@@ -39,6 +39,12 @@ export class Asset {
   id: number;
 
   /**
+   * Тип актива (crypto или nft).
+   */
+  @Column({ name: 'type', nullable: true })
+  type: 'crypto' | 'nft';
+
+  /**
    * Количество актива.
    */
   @Column('decimal')

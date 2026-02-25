@@ -37,6 +37,7 @@ describe('AssetsController', () => {
             create: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+            refreshAll: jest.fn(),
           },
         },
       ],
@@ -221,6 +222,40 @@ describe('AssetsController', () => {
       service.findOne.mockResolvedValue(null);
 
       await expect(controller.remove('999')).rejects.toThrow('Asset with ID 999 not found');
+    });
+  });
+
+  describe('refreshAll', () => {
+    const mockRequest = {
+      user: { id: 1, email: 'test@example.com', role: 'user' },
+    };
+
+    it('should return array of refreshed assets', async () => {
+      service.refreshAll.mockResolvedValue([mockCryptoAsset, mockNFTAsset]);
+
+      const result = await controller.refreshAll(mockRequest as any);
+
+      expect(service.refreshAll).toHaveBeenCalledWith(1);
+      expect(result).toHaveLength(2);
+    });
+
+    it('should return empty array when no assets', async () => {
+      service.refreshAll.mockResolvedValue([]);
+
+      const result = await controller.refreshAll(mockRequest as any);
+
+      expect(service.refreshAll).toHaveBeenCalledWith(1);
+      expect(result).toEqual([]);
+    });
+
+    it('should call service.refreshAll with userId from request', async () => {
+      const customRequest = {
+        user: { id: 42, email: 'another@example.com', role: 'user' },
+      };
+
+      await controller.refreshAll(customRequest as any);
+
+      expect(service.refreshAll).toHaveBeenCalledWith(42);
     });
   });
 });

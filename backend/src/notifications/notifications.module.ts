@@ -28,7 +28,6 @@ import { EmailModule } from './email/email.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { AlertsService } from './alerts/alerts.service';
 import { ReportsModule } from './reports/reports.module';
-import { ReportsService } from './reports/reports.service';
 
 /**
  * Модуль уведомлений.
@@ -52,7 +51,7 @@ import { ReportsService } from './reports/reports.service';
     ReportsModule,
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationService, EmailService, AlertsService, ReportsService, SchedulerService],
-  exports: [NotificationService, EmailService, AlertsService, ReportsService, SchedulerService],
+  providers: [NotificationsService, NotificationService, EmailService, AlertsService, SchedulerService],
+  exports: [NotificationService, EmailService, AlertsService, SchedulerService],
 })
 export class NotificationsModule {}

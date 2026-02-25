@@ -10,12 +10,15 @@
  * позволяя его инжектировать в другие компоненты.
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
+import { AssetUpdateService } from './asset-update.service';
 
 /**
  * Сервис для операций с активами.
@@ -28,16 +31,13 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
  */
 @Injectable()
 export class AssetsService {
-  /**
-   * Конструктор сервиса.
-   *
-   * @param assetsRepository Репозиторий для работы с сущностью Asset.
-   * @InjectRepository декоратор инжектирует репозиторий TypeORM,
-   * который предоставляет методы для работы с базой данных.
-   */
+  private readonly logger = new Logger(AssetsService.name);
+
   constructor(
     @InjectRepository(Asset)
     private assetsRepository: Repository<Asset>,
+    private readonly httpService: HttpService,
+    private readonly assetUpdateService: AssetUpdateService,
   ) {}
 
   /**
@@ -67,24 +67,36 @@ export class AssetsService {
    */
   async create(createAssetDto: CreateAssetDto & { userId?: number }): Promise<Asset> {
     let asset: Asset;
+    let currentPrice = createAssetDto.currentPrice;
+
     if (createAssetDto.type === 'crypto') {
+      if (!currentPrice) {
+        currentPrice = (await this.getCryptoPrice(createAssetDto.symbol!)) || 0;
+      }
+
       asset = new CryptoAsset();
+      asset.type = 'crypto';
       asset.amount = createAssetDto.amount;
       asset.middlePrice = createAssetDto.middlePrice;
       asset.previousPrice = 0;
-      asset.multiple = 0;
+      asset.multiple = currentPrice && createAssetDto.middlePrice 
+        ? currentPrice / createAssetDto.middlePrice 
+        : 0;
       asset.dailyChange = 0;
       asset.weeklyChange = 0;
       asset.monthlyChange = 0;
       asset.quartChange = 0;
       asset.yearChange = 0;
-      asset.totalChange = 0;
+      asset.totalChange = currentPrice && createAssetDto.middlePrice 
+        ? ((currentPrice - createAssetDto.middlePrice) / createAssetDto.middlePrice) * 100 
+        : 0;
       asset.userId = createAssetDto.userId || 0;
       (asset as CryptoAsset).symbol = createAssetDto.symbol!;
       (asset as CryptoAsset).fullName = createAssetDto.fullName!;
-      (asset as CryptoAsset).currentPrice = createAssetDto.currentPrice!;
+      (asset as CryptoAsset).currentPrice = currentPrice;
     } else {
       asset = new NFTAsset();
+      asset.type = 'nft';
       asset.amount = createAssetDto.amount;
       asset.middlePrice = createAssetDto.middlePrice;
       asset.previousPrice = 0;
@@ -123,5 +135,33 @@ export class AssetsService {
    */
   async remove(id: number): Promise<void> {
     await this.assetsRepository.delete(id);
+  }
+
+  async getCryptoPrice(symbol: string): Promise<number | null> {
+    try {
+      const apiKey = process.env.COINMARKETCAP_API_KEY;
+      if (!apiKey) {
+        this.logger.warn('CoinMarketCap API key не установлен');
+        return null;
+      }
+
+      const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { 'X-CMC_PRO_API_KEY': apiKey },
+        }),
+      );
+
+      const data = (response.data as any).data[symbol.toUpperCase()];
+      return data ? data.quote.USD.price : null;
+    } catch (error) {
+      this.logger.error(`Ошибка получения цены ${symbol}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async refreshAll(userId: number): Promise<Asset[]> {
+    await this.assetUpdateService.updateAssetsForUser(userId);
+    return this.assetsRepository.find({ where: { userId } });
   }
 }

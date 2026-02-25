@@ -162,9 +162,9 @@ export class NotificationsService {
    * Сгенерировать отчет вручную.
    */
   async generateReport(userId: number, dto: GenerateReportDto): Promise<string> {
-    // Для простоты, генерируем отчет для пользователя
-    await this.reportsService.generatePeriodicReports('daily');
-    return 'Report generation triggered';
+    const period = dto.period || 'daily';
+    await this.reportsService.generateUserReport(userId, period);
+    return `Report generation triggered for ${period} period`;
   }
 
   /**
