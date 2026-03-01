@@ -23,6 +23,7 @@ import { HistoricalPrice } from './assets/historical-price.entity';
 import { User } from './auth/user.entity';
 import { NotificationSettings } from './notifications/core/entities/notification-settings.entity';
 import { NotificationLog } from './notifications/core/entities/notification-log.entity';
+import { ReportLog } from './notifications/reports/report-log.entity';
 import { UserSettings } from './user-settings/core/entities/user-settings.entity';
 
 /**
@@ -40,7 +41,7 @@ import { UserSettings } from './user-settings/core/entities/user-settings.entity
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: process.env.DB_DATABASE || 'database.sqlite',
-      entities: [Asset, CryptoAsset, NFTAsset, HistoricalPrice, User, NotificationSettings, NotificationLog, UserSettings],
+      entities: [Asset, CryptoAsset, NFTAsset, HistoricalPrice, User, NotificationSettings, NotificationLog, ReportLog, UserSettings],
       synchronize: true, // For development; use migrations in production
     }),
     HttpModule,

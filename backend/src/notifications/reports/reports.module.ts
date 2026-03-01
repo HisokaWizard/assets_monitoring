@@ -8,8 +8,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationLog } from '../core/entities/notification-log.entity';
 import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
+import { HistoricalPrice } from '../../assets/historical-price.entity';
 import { EmailModule } from '../email/email.module';
 import { ReportsService } from './reports.service';
+import { ReportLog } from './report-log.entity';
 
 /**
  * Модуль отчетов.
@@ -19,7 +21,7 @@ import { ReportsService } from './reports.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationLog, Asset, CryptoAsset, NFTAsset]),
+    TypeOrmModule.forFeature([NotificationLog, ReportLog, Asset, CryptoAsset, NFTAsset, HistoricalPrice]),
     EmailModule,
   ],
   providers: [ReportsService],
