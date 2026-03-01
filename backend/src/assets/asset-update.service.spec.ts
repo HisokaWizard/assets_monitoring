@@ -50,6 +50,7 @@ describe('AssetUpdateService', () => {
     userId: 1,
     enabled: true,
     intervalHours: 4,
+    updateIntervalHours: 4,
     user: mockUser,
   } as NotificationSettings;
 
@@ -440,6 +441,88 @@ describe('AssetUpdateService', () => {
       loggerSpy.mockRestore();
     });
 
+  });
+
+  // ─── sub_task_2: TDD тесты updateIntervalHours + thresholdPercent ─────────
+
+  describe('updateIntervalHours usage in shouldUpdate logic', () => {
+    it('should NOT update assets when updateIntervalHours has not passed (even if intervalHours has)', async () => {
+      // updateIntervalHours=4, intervalHours=2
+      // lastUpdated = 3 часа назад → 3ч < 4ч updateIntervalHours → НЕ обновляем
+      const threeHoursAgo = new Date();
+      threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
+      const user = { id: 1, lastUpdated: threeHoursAgo } as User;
+
+      const settings = {
+        ...mockNotificationSettings,
+        intervalHours: 2,       // кулдаун алертов — прошёл (3ч > 2ч)
+        updateIntervalHours: 4, // интервал обновления — НЕ прошёл (3ч < 4ч)
+        user,
+      } as NotificationSettings;
+
+      notificationSettingsRepository.find.mockResolvedValue([settings]);
+      assetsRepository.find.mockResolvedValue([]);
+
+      await service.updateAssetsForUsers();
+
+      // Активы НЕ должны обновляться — updateIntervalHours не прошёл
+      // assetsRepository.find не должен быть вызван (или вызван 0 раз)
+      expect(assetsRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('should update assets when updateIntervalHours has passed', async () => {
+      // updateIntervalHours=4, lastUpdated = 5 часов назад → обновляем
+      const fiveHoursAgo = new Date();
+      fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
+      const user = { id: 1, lastUpdated: fiveHoursAgo } as User;
+
+      const settings = {
+        ...mockNotificationSettings,
+        intervalHours: 4,
+        updateIntervalHours: 4, // прошло 5ч >= 4ч → обновляем
+        user,
+      } as NotificationSettings;
+
+      notificationSettingsRepository.find.mockResolvedValue([settings]);
+      assetsRepository.find.mockResolvedValue([]);
+
+      await service.updateAssetsForUsers();
+
+      // Активы должны обновляться
+      expect(assetsRepository.find).toHaveBeenCalled();
+    });
+
+    it('should use max updateIntervalHours across multiple settings for same user', async () => {
+      // Если у пользователя 2 настройки: updateIntervalHours=2 и updateIntervalHours=8
+      // берём max=8, lastUpdated=5ч назад → 5ч < 8ч → НЕ обновляем
+      const fiveHoursAgo = new Date();
+      fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
+      const user = { id: 1, lastUpdated: fiveHoursAgo } as User;
+
+      const settings1 = {
+        ...mockNotificationSettings,
+        userId: 1,
+        updateIntervalHours: 2,
+        user,
+      } as NotificationSettings;
+      const settings2 = {
+        ...mockNotificationSettings,
+        userId: 1,
+        updateIntervalHours: 8,
+        user,
+      } as NotificationSettings;
+
+      notificationSettingsRepository.find.mockResolvedValue([settings1, settings2]);
+      assetsRepository.find.mockResolvedValue([]);
+
+      await service.updateAssetsForUsers();
+
+      // max(2,8)=8, прошло 5ч < 8ч → НЕ обновляем
+      expect(assetsRepository.find).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('thresholdPercent in alerts', () => {
     it('should continue with other assets on error', async () => {
 
       httpService.get.mockImplementation(() => {

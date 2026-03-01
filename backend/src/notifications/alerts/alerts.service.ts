@@ -14,6 +14,26 @@ import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
 import { EmailService } from '../email/email.service';
 
 /**
+ * Данные об отдельном срабатывании алерта по активу.
+ */
+interface AlertTriggered {
+  /** Тип актива: crypto или nft */
+  assetType: 'crypto' | 'nft';
+  /** Основное название: symbol для crypto, collectionName для nft */
+  name: string;
+  /** Полное название криптовалюты (только для crypto) */
+  fullName?: string;
+  /** Символ нативного токена (только для nft) */
+  nativeToken?: string;
+  /** Цена до изменения (previousPrice) */
+  previousPrice: number;
+  /** Текущая цена после изменения */
+  currentPrice: number;
+  /** % изменения со знаком (+/-) */
+  change: string;
+}
+
+/**
  * Сервис для алертов.
  *
  * Проверяет изменения цен активов и отправляет уведомления
@@ -107,20 +127,31 @@ export class AlertsService {
       return false;
     });
 
-    const alertsTriggered = [];
+    const alertsTriggered: AlertTriggered[] = [];
 
     for (const asset of assets) {
       const change = this.calculatePriceChange(asset);
       if (Math.abs(change) >= setting.thresholdPercent) {
-        const assetName =
-          asset instanceof CryptoAsset ? asset.symbol : (asset as NFTAsset).collectionName;
-        const currentPrice =
-          asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
-        alertsTriggered.push({
-          asset: assetName,
-          change: change.toFixed(2),
-          currentPrice,
-        });
+        if (asset instanceof CryptoAsset) {
+          alertsTriggered.push({
+            assetType: 'crypto',
+            name: asset.symbol,
+            fullName: asset.fullName,
+            previousPrice: asset.previousPrice,
+            currentPrice: asset.currentPrice,
+            change: (change >= 0 ? '+' : '') + change.toFixed(2),
+          });
+        } else {
+          const nftAsset = asset as NFTAsset;
+          alertsTriggered.push({
+            assetType: 'nft',
+            name: nftAsset.collectionName,
+            nativeToken: nftAsset.nativeToken,
+            previousPrice: nftAsset.previousPrice,
+            currentPrice: nftAsset.floorPrice,
+            change: (change >= 0 ? '+' : '') + change.toFixed(2),
+          });
+        }
       }
     }
 
@@ -153,19 +184,20 @@ export class AlertsService {
    */
   private async sendAlertEmail(
     setting: NotificationSettings,
-    alertsTriggered: Array<{ asset: string; change: string; currentPrice: number }>,
+    alertsTriggered: AlertTriggered[],
   ): Promise<void> {
     const subject = `Price Alert for ${setting.assetType.toUpperCase()} Assets`;
-    const message = this.buildAlertMessage(alertsTriggered);
+    const plainText = this.buildAlertPlainText(alertsTriggered);
+    const html = this.buildAlertHtml(alertsTriggered);
 
-    const success = await this.emailService.sendEmail(setting.user.email, subject, message);
+    const success = await this.emailService.sendEmail(setting.user.email, subject, plainText, html);
 
     // Логируем отправку
     await this.logRepository.save({
       userId: setting.userId,
       type: 'alert',
       subject,
-      message,
+      message: plainText,
       sentAt: new Date(),
       status: success ? 'sent' : 'failed',
     });
@@ -178,21 +210,127 @@ export class AlertsService {
   }
 
   /**
-   * Построение сообщения алерта.
+   * Построение plain-text сообщения алерта (для логов и text-части письма).
    *
    * @param alertsTriggered Список алертов
    * @returns Текст сообщения
    */
-  private buildAlertMessage(
-    alertsTriggered: Array<{ asset: string; change: string; currentPrice: number }>,
-  ): string {
+  private buildAlertPlainText(alertsTriggered: AlertTriggered[]): string {
     let message = 'Sharp price changes detected:\n\n';
 
     for (const alert of alertsTriggered) {
-      message += `${alert.asset}: ${alert.change}% change, Current price: $${alert.currentPrice}\n`;
+      const label = alert.assetType === 'crypto'
+        ? `${alert.name}${alert.fullName ? ` (${alert.fullName})` : ''}`
+        : `${alert.name}${alert.nativeToken ? ` [${alert.nativeToken}]` : ''}`;
+      message += `${label}: ${alert.change}% change`;
+      message += `, Price before: ${alert.previousPrice}`;
+      message += `, Current price: ${alert.currentPrice}\n`;
     }
 
     message += '\nPlease check your portfolio for more details.';
     return message;
+  }
+
+  /**
+   * Построение HTML-шаблона срочного алерта о резком изменении цены.
+   *
+   * Возвращает табличный HTML совместимый с email-клиентами (inline-стили).
+   * Единый шаблон для crypto и nft — разница только в данных.
+   * Цвет % изменения: зеленый при росте, красный при падении.
+   *
+   * @param alertsTriggered Список алертов
+   * @returns HTML-строка письма
+   */
+  private buildAlertHtml(alertsTriggered: AlertTriggered[]): string {
+    const rows = alertsTriggered.map((alert) => {
+      const isPositive = !alert.change.startsWith('-');
+      const changeColor = isPositive ? 'green' : 'red';
+
+      const typeBadge = alert.assetType.toUpperCase();
+
+      // Название: для crypto — symbol + fullName, для nft — collectionName + nativeToken
+      const nameCell = alert.assetType === 'crypto'
+        ? `<strong>${alert.name}</strong>${alert.fullName ? `<br><small style="color:#666;">${alert.fullName}</small>` : ''}`
+        : `<strong>${alert.name}</strong>${alert.nativeToken ? `<br><small style="color:#666;">${alert.nativeToken}</small>` : ''}`;
+
+      // Цена: для crypto — USD ($), для nft — нативный токен
+      const pricePrefix = alert.assetType === 'crypto' ? '$' : '';
+      const priceSuffix = alert.assetType === 'nft' && alert.nativeToken ? ` ${alert.nativeToken}` : '';
+
+      const formatPrice = (price: number) =>
+        `${pricePrefix}${price.toLocaleString('en-US', { maximumFractionDigits: 4 })}${priceSuffix}`;
+
+      return `
+        <tr style="border-bottom: 1px solid #e0e0e0;">
+          <td style="padding: 10px 14px; font-size: 12px; font-weight: bold; color: #555; white-space: nowrap;">${typeBadge}</td>
+          <td style="padding: 10px 14px; font-size: 14px;">${nameCell}</td>
+          <td style="padding: 10px 14px; font-size: 14px; white-space: nowrap;">${formatPrice(alert.previousPrice)}</td>
+          <td style="padding: 10px 14px; font-size: 14px; white-space: nowrap;">${formatPrice(alert.currentPrice)}</td>
+          <td style="padding: 10px 14px; font-size: 15px; font-weight: bold; color: ${changeColor}; white-space: nowrap;">${alert.change}%</td>
+        </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Alert Report</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 24px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #c0392b; padding: 20px 24px;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: bold;">
+                Price Alert Report
+              </h1>
+              <p style="margin: 6px 0 0; color: #f5c6c6; font-size: 13px;">
+                Sharp price change detected in your portfolio
+              </p>
+            </td>
+          </tr>
+
+          <!-- Table -->
+          <tr>
+            <td style="padding: 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
+                <!-- Table Header -->
+                <thead>
+                  <tr style="background-color: #f8f8f8;">
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid #e0e0e0;">Type</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid #e0e0e0;">Asset</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid #e0e0e0;">Price Before</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid #e0e0e0;">Price After</th>
+                    <th style="padding: 10px 14px; text-align: left; font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; border-bottom: 2px solid #e0e0e0;">Change</th>
+                  </tr>
+                </thead>
+                <!-- Table Body -->
+                <tbody>
+                  ${rows}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <p style="margin: 0; font-size: 13px; color: #888;">
+                Please review your portfolio and consider your strategy.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
   }
 }

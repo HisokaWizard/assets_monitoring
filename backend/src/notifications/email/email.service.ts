@@ -60,10 +60,11 @@ export class EmailService {
    *
    * @param to Email адрес получателя
    * @param subject Тема письма
-   * @param message Текст сообщения
+   * @param message Текст сообщения (plain-text)
+   * @param html Опциональный HTML-контент письма (если не передан — генерируется из message)
    * @returns Promise<boolean> Успешность отправки
    */
-  async sendEmail(to: string, subject: string, message: string): Promise<boolean> {
+  async sendEmail(to: string, subject: string, message: string, html?: string): Promise<boolean> {
     if (!this.transporter) {
       this.logger.error('Email transporter not initialized');
       return false;
@@ -75,7 +76,7 @@ export class EmailService {
         to,
         subject,
         text: message,
-        html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
+        html: html ?? `<p>${message.replace(/\n/g, '<br>')}</p>`,
       };
 
       const info = await this.transporter.sendMail(mailOptions);

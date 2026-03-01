@@ -77,14 +77,17 @@ export class AssetUpdateService {
         continue;
       }
 
-      // Определить интервал: максимальный из настроек или 4 часа по умолчанию
-      const intervalHours =
-        userSettings.length > 0 ? Math.max(...userSettings.map((s) => s.intervalHours)) : 4;
+      // Определить интервал обновления активов из API: максимальный updateIntervalHours из настроек
+      // или 4 часа по умолчанию.
+      // Примечание: intervalHours — это кулдаун между алертами (используется в alerts.service.ts),
+      // а updateIntervalHours — интервал опроса внешних API для обновления цен.
+      const updateIntervalHours =
+        userSettings.length > 0 ? Math.max(...userSettings.map((s) => s.updateIntervalHours)) : 4;
 
       // Проверить, прошло ли время с последнего обновления
       const shouldUpdate =
         !user.lastUpdated ||
-        now.getTime() - user.lastUpdated.getTime() >= intervalHours * 60 * 60 * 1000;
+        now.getTime() - user.lastUpdated.getTime() >= updateIntervalHours * 60 * 60 * 1000;
 
       if (shouldUpdate) {
         // Получить активы пользователя
