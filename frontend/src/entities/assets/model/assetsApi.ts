@@ -73,6 +73,14 @@ export const assetsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Assets'],
     }),
+
+    refreshNFTs: builder.mutation<NFTAsset[], void>({
+      query: () => ({
+        url: '/assets/refresh-nft',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Assets'],
+    }),
   }),
   overrideExisting: false,
 });
@@ -84,4 +92,5 @@ export const {
   useUpdateAssetMutation,
   useDeleteAssetMutation,
   useRefreshAssetsMutation,
+  useRefreshNFTsMutation,
 } = assetsApi;

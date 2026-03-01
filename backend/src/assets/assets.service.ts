@@ -19,6 +19,8 @@ import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { AssetUpdateService } from './asset-update.service';
+import { UserSettingsService } from '../user-settings/user-settings.service';
+import { User } from '../auth/user.entity';
 
 /**
  * Сервис для операций с активами.
@@ -38,6 +40,7 @@ export class AssetsService {
     private assetsRepository: Repository<Asset>,
     private readonly httpService: HttpService,
     private readonly assetUpdateService: AssetUpdateService,
+    private readonly userSettingsService: UserSettingsService,
   ) {}
 
   /**
@@ -67,12 +70,10 @@ export class AssetsService {
    */
   async create(createAssetDto: CreateAssetDto & { userId?: number }): Promise<Asset> {
     let asset: Asset;
-    let currentPrice = createAssetDto.currentPrice;
+    let currentPrice: number | null = null;
 
     if (createAssetDto.type === 'crypto') {
-      if (!currentPrice) {
-        currentPrice = (await this.getCryptoPrice(createAssetDto.symbol!)) || 0;
-      }
+      currentPrice = createAssetDto.currentPrice || (await this.getCryptoPrice(createAssetDto.symbol!));
 
       asset = new CryptoAsset();
       asset.type = 'crypto';
@@ -93,24 +94,34 @@ export class AssetsService {
       asset.userId = createAssetDto.userId || 0;
       (asset as CryptoAsset).symbol = createAssetDto.symbol!;
       (asset as CryptoAsset).fullName = createAssetDto.fullName!;
-      (asset as CryptoAsset).currentPrice = currentPrice;
+      (asset as CryptoAsset).currentPrice = currentPrice || 0;
     } else {
+      let floorPrice = createAssetDto.floorPrice;
+      
+      if (!floorPrice) {
+        floorPrice = (await this.getNFTPrice(createAssetDto.collectionName!, createAssetDto.userId)) || 0;
+      }
+
       asset = new NFTAsset();
       asset.type = 'nft';
       asset.amount = createAssetDto.amount;
       asset.middlePrice = createAssetDto.middlePrice;
       asset.previousPrice = 0;
-      asset.multiple = 0;
+      asset.multiple = floorPrice && createAssetDto.middlePrice 
+        ? floorPrice / createAssetDto.middlePrice 
+        : 0;
       asset.dailyChange = 0;
       asset.weeklyChange = 0;
       asset.monthlyChange = 0;
       asset.quartChange = 0;
       asset.yearChange = 0;
-      asset.totalChange = 0;
+      asset.totalChange = floorPrice && createAssetDto.middlePrice 
+        ? ((floorPrice - createAssetDto.middlePrice) / createAssetDto.middlePrice) * 100 
+        : 0;
       asset.userId = createAssetDto.userId || 0;
       (asset as NFTAsset).collectionName = createAssetDto.collectionName!;
-      (asset as NFTAsset).floorPrice = createAssetDto.floorPrice!;
-      (asset as NFTAsset).traitPrice = createAssetDto.traitPrice!;
+      (asset as NFTAsset).floorPrice = floorPrice;
+      (asset as NFTAsset).traitPrice = createAssetDto.traitPrice || 0;
     }
     return this.assetsRepository.save(asset);
   }
@@ -160,8 +171,54 @@ export class AssetsService {
     }
   }
 
+  async getNFTPrice(collectionName: string, userId?: number): Promise<number | null> {
+    try {
+      let apiKey: string | undefined;
+      
+      if (userId) {
+        const userSettings = await this.userSettingsService.getUserSettings({ id: userId } as User);
+        apiKey = userSettings?.openseaApiKey;
+      }
+      
+      if (!apiKey) {
+        apiKey = process.env.OPENSEA_API_KEY;
+      }
+
+      if (!apiKey) {
+        this.logger.warn('OpenSea API key не установлен');
+        return null;
+      }
+
+      const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { 'X-API-KEY': apiKey },
+        }),
+      );
+
+      return (response as any).data?.stats?.floor_price || null;
+    } catch (error) {
+      this.logger.error(`Ошибка получения цены NFT ${collectionName}: ${error.message}`);
+      return null;
+    }
+  }
+
   async refreshAll(userId: number): Promise<Asset[]> {
     await this.assetUpdateService.updateAssetsForUser(userId);
     return this.assetsRepository.find({ where: { userId } });
+  }
+
+  async refreshNFTs(userId: number): Promise<Asset[]> {
+    const nftAssets = await this.assetsRepository.find({ where: { userId, type: 'nft' } });
+    
+    for (const asset of nftAssets) {
+      try {
+        await this.assetUpdateService.updateNFTAsset(asset as NFTAsset);
+      } catch (error) {
+        this.logger.error(`Ошибка обновления NFT ${asset.id}: ${error.message}`);
+      }
+    }
+    
+    return this.assetsRepository.find({ where: { userId, type: 'nft' } });
   }
 }

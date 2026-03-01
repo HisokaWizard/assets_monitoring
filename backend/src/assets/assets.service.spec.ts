@@ -7,6 +7,7 @@ import { CreateAssetDto } from './dto/create-asset.dto';
 import { HttpService } from '@nestjs/axios';
 import { of, throwError } from 'rxjs';
 import { AssetUpdateService } from './asset-update.service';
+import { UserSettingsService } from '../user-settings/user-settings.service';
 
 describe('AssetsService', () => {
   let service: AssetsService;
@@ -71,6 +72,13 @@ describe('AssetsService', () => {
           provide: AssetUpdateService,
           useValue: {
             updateAssetsForUser: jest.fn(),
+            updateNFTAsset: jest.fn(),
+          },
+        },
+        {
+          provide: UserSettingsService,
+          useValue: {
+            getUserSettings: jest.fn().mockResolvedValue(null),
           },
         },
       ],
@@ -235,7 +243,8 @@ describe('AssetsService', () => {
 
       const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
       expect(savedAsset.previousPrice).toBe(0);
-      expect(savedAsset.multiple).toBe(0);
+      // multiple = floorPrice / middlePrice = 15 / 10 = 1.5
+      expect(savedAsset.multiple).toBeCloseTo(1.5, 2);
       expect(savedAsset.dailyChange).toBe(0);
     });
 

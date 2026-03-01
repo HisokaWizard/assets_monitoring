@@ -121,4 +121,16 @@ export class AssetsController {
   refreshAll(@Request() req) {
     return this.assetsService.refreshAll(req.user.id);
   }
+
+  /**
+   * Обновить NFT активы пользователя.
+   *
+   * @param req Запрос с пользователем из JWT токена.
+   * @returns Массив обновлённых NFT активов.
+   * @Post('refresh-nft') обрабатывает POST запросы на '/assets/refresh-nft'.
+   */
+  @Post('refresh-nft')
+  refreshNFTs(@Request() req) {
+    return this.assetsService.refreshNFTs(req.user.id);
+  }
 }

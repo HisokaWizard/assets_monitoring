@@ -92,10 +92,10 @@ export class AssetUpdateService {
 
         for (const asset of assets) {
           try {
-            if (asset instanceof CryptoAsset) {
-              await this.updateCryptoAsset(asset, coinmarketcapApiKey || undefined);
-            } else if (asset instanceof NFTAsset) {
-              await this.updateNFTAsset(asset, openseaApiKey || undefined);
+            if (asset.type === 'crypto') {
+              await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
+            } else if (asset.type === 'nft') {
+              await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined);
             }
             updatedAssetIds.push(asset.id);
           } catch (error) {
@@ -128,10 +128,10 @@ export class AssetUpdateService {
 
     for (const asset of assets) {
       try {
-        if (asset instanceof CryptoAsset) {
-          await this.updateCryptoAsset(asset, coinmarketcapApiKey || undefined);
-        } else if (asset instanceof NFTAsset) {
-          await this.updateNFTAsset(asset, openseaApiKey || undefined);
+        if (asset.type === 'crypto') {
+          await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
+        } else if (asset.type === 'nft') {
+          await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined);
         }
         updatedAssetIds.push(asset.id);
       } catch (error) {
@@ -158,7 +158,7 @@ export class AssetUpdateService {
   /**
    * Обновить NFT актив.
    */
-  private async updateNFTAsset(asset: NFTAsset, apiKey?: string): Promise<void> {
+  async updateNFTAsset(asset: NFTAsset, apiKey?: string): Promise<void> {
     const floorPrice = await this.fetchFromOpenSea(asset.collectionName, apiKey);
     if (floorPrice) {
       asset.floorPrice = floorPrice;

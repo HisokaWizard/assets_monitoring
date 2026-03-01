@@ -7,6 +7,7 @@ import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
 import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
+import { UserSettingsService } from '../user-settings/user-settings.service';
 import { of } from 'rxjs';
 
 describe('AssetUpdateService', () => {
@@ -83,6 +84,15 @@ describe('AssetUpdateService', () => {
           provide: getRepositoryToken(NotificationSettings),
           useValue: {
             find: jest.fn(),
+          },
+        },
+        {
+          provide: UserSettingsService,
+          useValue: {
+            getUserSettings: jest.fn().mockResolvedValue({
+              coinmarketcapApiKey: 'test_key',
+              openseaApiKey: 'test_key',
+            }),
           },
         },
       ],
