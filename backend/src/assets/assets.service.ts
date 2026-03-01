@@ -97,9 +97,19 @@ export class AssetsService {
       (asset as CryptoAsset).currentPrice = currentPrice || 0;
     } else {
       let floorPrice = createAssetDto.floorPrice;
-      
+
       if (!floorPrice) {
         floorPrice = (await this.getNFTPrice(createAssetDto.collectionName!, createAssetDto.userId)) || 0;
+      }
+
+      // Определить нативный токен коллекции (по умолчанию ETH)
+      const nativeToken = createAssetDto.nativeToken || 'ETH';
+
+      // Рассчитать middlePriceUsd = middlePrice * курс нативного токена
+      let middlePriceUsd = 0;
+      const tokenPrice = await this.getCryptoPrice(nativeToken);
+      if (tokenPrice && createAssetDto.middlePrice) {
+        middlePriceUsd = createAssetDto.middlePrice * tokenPrice;
       }
 
       asset = new NFTAsset();
@@ -107,20 +117,23 @@ export class AssetsService {
       asset.amount = createAssetDto.amount;
       asset.middlePrice = createAssetDto.middlePrice;
       asset.previousPrice = 0;
-      asset.multiple = floorPrice && createAssetDto.middlePrice 
-        ? floorPrice / createAssetDto.middlePrice 
+      asset.multiple = floorPrice && createAssetDto.middlePrice
+        ? floorPrice / createAssetDto.middlePrice
         : 0;
       asset.dailyChange = 0;
       asset.weeklyChange = 0;
       asset.monthlyChange = 0;
       asset.quartChange = 0;
       asset.yearChange = 0;
-      asset.totalChange = floorPrice && createAssetDto.middlePrice 
-        ? ((floorPrice - createAssetDto.middlePrice) / createAssetDto.middlePrice) * 100 
+      asset.totalChange = floorPrice && createAssetDto.middlePrice
+        ? ((floorPrice - createAssetDto.middlePrice) / createAssetDto.middlePrice) * 100
         : 0;
       asset.userId = createAssetDto.userId || 0;
       (asset as NFTAsset).collectionName = createAssetDto.collectionName!;
+      (asset as NFTAsset).nativeToken = nativeToken;
       (asset as NFTAsset).floorPrice = floorPrice;
+      (asset as NFTAsset).floorPriceUsd = 0; // будет заполнено при первом refresh
+      (asset as NFTAsset).middlePriceUsd = middlePriceUsd;
       (asset as NFTAsset).traitPrice = createAssetDto.traitPrice || 0;
     }
     return this.assetsRepository.save(asset);
@@ -210,15 +223,19 @@ export class AssetsService {
 
   async refreshNFTs(userId: number): Promise<Asset[]> {
     const nftAssets = await this.assetsRepository.find({ where: { userId, type: 'nft' } });
-    
+
+    // Получить API ключ пользователя
+    const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
+    const openseaApiKey = userSettingsData?.openseaApiKey || undefined;
+
     for (const asset of nftAssets) {
       try {
-        await this.assetUpdateService.updateNFTAsset(asset as NFTAsset);
+        await this.assetUpdateService.updateNFTAsset(asset as NFTAsset, openseaApiKey);
       } catch (error) {
         this.logger.error(`Ошибка обновления NFT ${asset.id}: ${error.message}`);
       }
     }
-    
+
     return this.assetsRepository.find({ where: { userId, type: 'nft' } });
   }
 }

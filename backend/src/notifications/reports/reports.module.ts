@@ -7,7 +7,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationLog } from '../core/entities/notification-log.entity';
-import { Asset } from '../../assets/asset.entity';
+import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
 import { EmailModule } from '../email/email.module';
 import { ReportsService } from './reports.service';
 
@@ -19,7 +19,7 @@ import { ReportsService } from './reports.service';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationLog, Asset]),
+    TypeOrmModule.forFeature([NotificationLog, Asset, CryptoAsset, NFTAsset]),
     EmailModule,
   ],
   providers: [ReportsService],

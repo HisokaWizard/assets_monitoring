@@ -22,7 +22,7 @@ import { SchedulerService } from './scheduler/scheduler.service';
 import { NotificationSettings } from './core/entities/notification-settings.entity';
 import { NotificationLog } from './core/entities/notification-log.entity';
 import { HistoricalPrice } from '../assets/historical-price.entity';
-import { Asset } from '../assets/asset.entity';
+import { Asset, CryptoAsset, NFTAsset } from '../assets/asset.entity';
 import { User } from '../auth/user.entity';
 import { EmailModule } from './email/email.module';
 import { AlertsModule } from './alerts/alerts.module';
@@ -41,7 +41,7 @@ import { ReportsModule } from './reports/reports.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationSettings, NotificationLog, HistoricalPrice, Asset, User]),
+    TypeOrmModule.forFeature([NotificationSettings, NotificationLog, HistoricalPrice, Asset, CryptoAsset, NFTAsset, User]),
     ScheduleModule.forRoot(),
     HttpModule,
     forwardRef(() => AssetsModule),

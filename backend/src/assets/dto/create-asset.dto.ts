@@ -97,6 +97,18 @@ export class CreateAssetDto {
   collectionName?: string;
 
   /**
+   * Символ нативного токена коллекции (для nft).
+   *
+   * Например: 'ETH', 'SOL', 'WETH', 'ATOM'.
+   * По умолчанию 'ETH', если не указан.
+   * @IsOptional() делает поле опциональным.
+   * @IsString() проверяет, что значение является строкой.
+   */
+  @IsOptional()
+  @IsString()
+  nativeToken?: string;
+
+  /**
    * Минимальная цена в коллекции (для nft).
    *
    * Требуется для типа 'nft'. Опционально для 'crypto'.

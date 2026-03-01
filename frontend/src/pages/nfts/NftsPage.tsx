@@ -45,13 +45,17 @@ const REPORT_PERIODS: { value: ReportPeriod; label: string }[] = [
 ];
 
 const calculateFields = (asset: NFTAsset) => {
-  const totalValue = (asset.amount || 0) * (asset.floorPrice || 0);
-  const totalInvested = (asset.amount || 0) * (asset.middlePrice || 0);
+  // Используем USD-значения для расчёта стоимости в долларах
+  const floorUsd = asset.floorPriceUsd || 0;
+  const middleUsd = asset.middlePriceUsd || 0;
+
+  const totalValue = (asset.amount || 0) * floorUsd;
+  const totalInvested = (asset.amount || 0) * middleUsd;
   const profitLoss = totalValue - totalInvested;
-  const profitLossPercent = asset.middlePrice && asset.middlePrice > 0 
-    ? ((asset.floorPrice - asset.middlePrice) / asset.middlePrice) * 100 
+  const profitLossPercent = middleUsd > 0
+    ? ((floorUsd - middleUsd) / middleUsd) * 100
     : 0;
-  
+
   return { totalValue, totalInvested, profitLoss, profitLossPercent };
 };
 
@@ -82,6 +86,7 @@ export const NftsPage: React.FC = () => {
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('daily');
   const [formData, setFormData] = useState({
     collectionName: '',
+    nativeToken: 'ETH',
     amount: '',
     middlePrice: '',
   });
@@ -105,12 +110,13 @@ export const NftsPage: React.FC = () => {
       setEditingId(nft.id);
       setFormData({
         collectionName: nft.collectionName || '',
+        nativeToken: nft.nativeToken || 'ETH',
         amount: nft.amount?.toString() || '',
         middlePrice: nft.middlePrice?.toString() || '',
       });
     } else {
       setEditingId(null);
-      setFormData({ collectionName: '', amount: '', middlePrice: '' });
+      setFormData({ collectionName: '', nativeToken: 'ETH', amount: '', middlePrice: '' });
     }
     setOpenDialog(true);
   };
@@ -118,7 +124,7 @@ export const NftsPage: React.FC = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingId(null);
-    setFormData({ collectionName: '', amount: '', middlePrice: '' });
+    setFormData({ collectionName: '', nativeToken: 'ETH', amount: '', middlePrice: '' });
   };
 
   const handleSubmit = async () => {
@@ -136,6 +142,7 @@ export const NftsPage: React.FC = () => {
         await createAsset({
           type: 'nft',
           collectionName: formData.collectionName,
+          nativeToken: formData.nativeToken || 'ETH',
           amount: parseFloat(formData.amount),
           middlePrice: parseFloat(formData.middlePrice),
         });
@@ -260,7 +267,9 @@ export const NftsPage: React.FC = () => {
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>Collection</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Amount</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Avg Price</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Avg Price USD</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Floor Price</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Floor Price USD</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Value</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">Invested</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }} align="right">P/L</TableCell>
@@ -287,8 +296,14 @@ export const NftsPage: React.FC = () => {
                     <TableRow key={asset.id} hover>
                       <TableCell sx={{ fontWeight: 'bold' }}>{asset.collectionName || '—'}</TableCell>
                       <TableCell align="right">{formatValue(asset.amount)}</TableCell>
-                      <TableCell align="right">{formatValue(asset.middlePrice, 'currency')}</TableCell>
-                      <TableCell align="right">{formatValue(asset.floorPrice, 'currency')}</TableCell>
+                      <TableCell align="right">
+                        {formatValue(asset.middlePrice)} {asset.nativeToken || 'ETH'}
+                      </TableCell>
+                      <TableCell align="right">{formatValue(asset.middlePriceUsd, 'currency')}</TableCell>
+                      <TableCell align="right">
+                        {formatValue(asset.floorPrice)} {asset.nativeToken || 'ETH'}
+                      </TableCell>
+                      <TableCell align="right">{formatValue(asset.floorPriceUsd, 'currency')}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 500 }}>{formatValue(totalValue, 'currency')}</TableCell>
                       <TableCell align="right">{formatValue(totalInvested, 'currency')}</TableCell>
                       <TableCell align="right" sx={{ color: profitLoss >= 0 ? 'success.main' : 'error.main', fontWeight: 500 }}>
@@ -379,6 +394,17 @@ export const NftsPage: React.FC = () => {
                 required
               />
             )}
+            {!editingId && (
+              <TextField
+                label="Native Token"
+                value={formData.nativeToken}
+                onChange={(e) => setFormData({ ...formData, nativeToken: e.target.value.toUpperCase() })}
+                placeholder="e.g., ETH"
+                fullWidth
+                helperText="Token symbol the collection trades in (ETH, SOL, WETH, ATOM)"
+                inputProps={{ maxLength: 10 }}
+              />
+            )}
             <TextField
               label="Amount"
               type="number"
@@ -389,13 +415,14 @@ export const NftsPage: React.FC = () => {
               inputProps={{ min: 0, step: '1' }}
             />
             <TextField
-              label="Average Purchase Price"
+              label={`Average Purchase Price (${formData.nativeToken || 'ETH'})`}
               type="number"
               value={formData.middlePrice}
               onChange={(e) => setFormData({ ...formData, middlePrice: e.target.value })}
               fullWidth
               required
               inputProps={{ min: 0, step: '0.01' }}
+              helperText={`Enter price in ${formData.nativeToken || 'ETH'} (native token)`}
             />
           </Box>
         </DialogContent>

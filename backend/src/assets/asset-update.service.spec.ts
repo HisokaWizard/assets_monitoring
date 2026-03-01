@@ -35,7 +35,10 @@ describe('AssetUpdateService', () => {
     collectionName: { value: 'BAYC', writable: true },
     userId: { value: 1, writable: true },
     floorPrice: { value: 15, writable: true },
+    floorPriceUsd: { value: 0, writable: true },
     middlePrice: { value: 10, writable: true },
+    middlePriceUsd: { value: 0, writable: true },
+    nativeToken: { value: 'ETH', writable: true },
   }) as NFTAsset;
 
   const mockUser = {
@@ -271,7 +274,7 @@ describe('AssetUpdateService', () => {
       process.env.OPENSEA_API_KEY = 'test_key';
 
       httpService.get.mockReturnValue(of({
-        data: { stats: { floor_price: 20 } }
+        data: { stats: { floor_price: 20, floor_price_usd: 56000 } }
       }) as any);
 
       const oldDate = new Date('2024-01-01');
@@ -335,6 +338,58 @@ describe('AssetUpdateService', () => {
       await service.updateAssetsForUsers();
 
       expect(historicalPriceRepository.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('NFT specific', () => {
+    it('should extract floor_price_usd from OpenSea response', async () => {
+      process.env.OPENSEA_API_KEY = 'test_key';
+
+      httpService.get.mockReturnValue(of({
+        data: { stats: { floor_price: 2.0, floor_price_usd: 5600 } }
+      }) as any);
+
+      const oldDate = new Date('2024-01-01');
+      const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
+      const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
+
+      notificationSettingsRepository.find.mockResolvedValue([settings]);
+      assetsRepository.find.mockResolvedValue([mockNFTAsset]);
+      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.updateAssetsForUsers();
+
+      expect(assetsRepository.save).toHaveBeenCalled();
+      const savedAsset = assetsRepository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.floorPrice).toBe(2.0);
+      expect(savedAsset.floorPriceUsd).toBe(5600);
+    });
+
+    it('should update NFT asset with both floorPrice and floorPriceUsd', async () => {
+      httpService.get.mockReturnValue(of({
+        data: { stats: { floor_price: 3.5, floor_price_usd: 9800 } }
+      }) as any);
+
+      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+      historicalPriceRepository.create.mockReturnValue({} as any);
+      historicalPriceRepository.save.mockResolvedValue({} as any);
+
+      await service.updateNFTAsset(mockNFTAsset, 'test_key');
+
+      expect(mockNFTAsset.floorPrice).toBe(3.5);
+      expect(mockNFTAsset.floorPriceUsd).toBe(9800);
+    });
+
+    it('should not update NFT asset when floorPrice is null', async () => {
+      httpService.get.mockReturnValue(of({
+        data: { stats: null }
+      }) as any);
+
+      assetsRepository.save.mockClear();
+
+      await service.updateNFTAsset(mockNFTAsset, 'test_key');
+
+      expect(assetsRepository.save).not.toHaveBeenCalled();
     });
   });
 

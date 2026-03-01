@@ -45,6 +45,9 @@ describe('AssetsService', () => {
     totalChange: 0,
     collectionName: 'Bored Ape Yacht Club',
     floorPrice: 15,
+    floorPriceUsd: 42000,
+    middlePriceUsd: 28000,
+    nativeToken: 'ETH',
     traitPrice: 20,
   } as unknown as NFTAsset;
 
@@ -189,6 +192,7 @@ describe('AssetsService', () => {
         collectionName: 'Bored Ape Yacht Club',
         floorPrice: 15,
         traitPrice: 20,
+        nativeToken: 'ETH',
       };
 
       repository.save.mockResolvedValue(mockNFTAsset);
@@ -200,6 +204,86 @@ describe('AssetsService', () => {
       expect(savedAsset.collectionName).toBe('Bored Ape Yacht Club');
       expect(savedAsset.floorPrice).toBe(15);
       expect(savedAsset.traitPrice).toBe(20);
+    });
+
+    it('should set nativeToken on NFTAsset (defaults to ETH)', async () => {
+      const createDto: CreateAssetDto = {
+        type: 'nft',
+        amount: 1,
+        middlePrice: 10,
+        collectionName: 'BAYC',
+        floorPrice: 15,
+      };
+
+      repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.create(createDto);
+
+      const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.nativeToken).toBe('ETH');
+    });
+
+    it('should set custom nativeToken on NFTAsset when provided', async () => {
+      const createDto: CreateAssetDto = {
+        type: 'nft',
+        amount: 1,
+        middlePrice: 10,
+        collectionName: 'SomeCollection',
+        nativeToken: 'SOL',
+      };
+
+      repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.create(createDto);
+
+      const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.nativeToken).toBe('SOL');
+    });
+
+    it('should calculate middlePriceUsd for NFTAsset using nativeToken price', async () => {
+      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
+      const createDto: CreateAssetDto = {
+        type: 'nft',
+        amount: 2,
+        middlePrice: 1.5,
+        collectionName: 'BAYC',
+        nativeToken: 'ETH',
+      };
+
+      const mockEthResponse = {
+        status: 200, statusText: 'OK', headers: {}, config: {},
+        data: {
+          data: {
+            ETH: { quote: { USD: { price: 2000 } } },
+          },
+        },
+      };
+      (httpService.get as jest.Mock).mockReturnValue(of(mockEthResponse as any));
+      repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.create(createDto);
+
+      const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      // middlePriceUsd = middlePrice * tokenPrice = 1.5 * 2000 = 3000
+      expect(savedAsset.middlePriceUsd).toBeCloseTo(3000, 1);
+    });
+
+    it('should set middlePriceUsd to 0 when token price unavailable', async () => {
+      delete process.env.COINMARKETCAP_API_KEY;
+      const createDto: CreateAssetDto = {
+        type: 'nft',
+        amount: 1,
+        middlePrice: 1.5,
+        collectionName: 'BAYC',
+        nativeToken: 'ETH',
+      };
+
+      repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.create(createDto);
+
+      const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.middlePriceUsd).toBe(0);
     });
 
     it('should calculate multiple and totalChange when currentPrice is provided for CryptoAsset', async () => {
@@ -366,6 +450,54 @@ describe('AssetsService', () => {
       repository.delete.mockResolvedValue({ affected: 0, raw: {} });
 
       await expect(service.remove(999)).resolves.not.toThrow();
+    });
+  });
+
+  describe('refreshNFTs', () => {
+    let userSettingsService: jest.Mocked<{ getUserSettings: jest.Mock }>;
+    let assetUpdateService: jest.Mocked<{ updateNFTAsset: jest.Mock }>;
+
+    beforeEach(() => {
+      userSettingsService = (service as any).userSettingsService;
+      assetUpdateService = (service as any).assetUpdateService;
+    });
+
+    it('should pass openseaApiKey to updateNFTAsset', async () => {
+      userSettingsService.getUserSettings.mockResolvedValue({ openseaApiKey: 'user-opensea-key' } as any);
+      repository.find.mockResolvedValue([mockNFTAsset]);
+      assetUpdateService.updateNFTAsset.mockResolvedValue(undefined);
+
+      await service.refreshNFTs(1);
+
+      expect(assetUpdateService.updateNFTAsset).toHaveBeenCalledWith(
+        mockNFTAsset,
+        'user-opensea-key',
+      );
+    });
+
+    it('should pass undefined when openseaApiKey not set', async () => {
+      userSettingsService.getUserSettings.mockResolvedValue(null as any);
+      repository.find.mockResolvedValue([mockNFTAsset]);
+      assetUpdateService.updateNFTAsset.mockResolvedValue(undefined);
+
+      await service.refreshNFTs(1);
+
+      expect(assetUpdateService.updateNFTAsset).toHaveBeenCalledWith(
+        mockNFTAsset,
+        undefined,
+      );
+    });
+
+    it('should return updated nft assets after refresh', async () => {
+      userSettingsService.getUserSettings.mockResolvedValue({ openseaApiKey: 'key' } as any);
+      repository.find
+        .mockResolvedValueOnce([mockNFTAsset]) // first call: get nfts to update
+        .mockResolvedValueOnce([mockNFTAsset]); // second call: return updated list
+      assetUpdateService.updateNFTAsset.mockResolvedValue(undefined);
+
+      const result = await service.refreshNFTs(1);
+
+      expect(result).toEqual([mockNFTAsset]);
     });
   });
 

@@ -208,23 +208,46 @@ export class CryptoAsset extends Asset {
  * Сущность NFT актива.
  *
  * Наследует от Asset и добавляет специфичные поля для NFT.
+ * middlePrice (из базового Asset) хранится в нативном токене коллекции.
+ * floorPrice хранится в нативном токене (из OpenSea).
+ * floorPriceUsd и middlePriceUsd — соответствующие USD-значения.
  */
 @ChildEntity('nft')
 export class NFTAsset extends Asset {
   /**
-   * Название коллекции NFT.
+   * Название коллекции NFT (slug для OpenSea API).
    */
   @Column({ nullable: true })
   collectionName: string;
 
   /**
-   * Цена пола коллекции.
+   * Символ нативного токена коллекции (например, 'ETH', 'SOL', 'WETH', 'ATOM').
+   * Используется для получения курса через CoinMarketCap.
+   */
+  @Column({ nullable: true })
+  nativeToken: string;
+
+  /**
+   * Цена пола коллекции в нативном токене (из OpenSea floor_price).
    */
   @Column({ type: 'decimal', nullable: true })
   floorPrice: number;
 
   /**
-   * Цена по признакам.
+   * Цена пола коллекции в USD (из OpenSea floor_price_usd).
+   */
+  @Column({ type: 'decimal', nullable: true })
+  floorPriceUsd: number;
+
+  /**
+   * Средняя цена покупки в USD (middlePrice * курс nativeToken из CoinMarketCap).
+   * Рассчитывается при создании актива и обновляется при refresh.
+   */
+  @Column({ type: 'decimal', nullable: true })
+  middlePriceUsd: number;
+
+  /**
+   * Цена по признакам (trait price) в нативном токене.
    */
   @Column({ type: 'decimal', nullable: true })
   traitPrice: number;

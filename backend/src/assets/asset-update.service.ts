@@ -157,11 +157,17 @@ export class AssetUpdateService {
 
   /**
    * Обновить NFT актив.
+   *
+   * Получает floorPrice (в нативном токене) и floorPriceUsd из OpenSea,
+   * сохраняет оба значения в активе.
    */
   async updateNFTAsset(asset: NFTAsset, apiKey?: string): Promise<void> {
-    const floorPrice = await this.fetchFromOpenSea(asset.collectionName, apiKey);
-    if (floorPrice) {
+    const { floorPrice, floorPriceUsd } = await this.fetchFromOpenSea(asset.collectionName, apiKey);
+    if (floorPrice !== null) {
       asset.floorPrice = floorPrice;
+      if (floorPriceUsd !== null) {
+        asset.floorPriceUsd = floorPriceUsd;
+      }
       await this.calculateChanges(asset);
       await this.saveHistoricalPrice(asset.id, floorPrice, 'OpenSea');
       await this.assetsRepository.save(asset);
@@ -196,13 +202,19 @@ export class AssetUpdateService {
 
   /**
    * Получить данные из OpenSea API.
+   *
+   * Возвращает объект с floorPrice (нативный токен) и floorPriceUsd (USD).
+   * OpenSea API v2 /collections/{slug}/stats возвращает оба значения.
    */
-  private async fetchFromOpenSea(collectionName: string, apiKey?: string): Promise<number | null> {
+  private async fetchFromOpenSea(
+    collectionName: string,
+    apiKey?: string,
+  ): Promise<{ floorPrice: number | null; floorPriceUsd: number | null }> {
     try {
       const key = apiKey || process.env.OPENSEA_API_KEY;
       if (!key) {
         this.logger.warn('OpenSea API key не установлен');
-        return null;
+        return { floorPrice: null, floorPriceUsd: null };
       }
 
       const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
@@ -212,12 +224,16 @@ export class AssetUpdateService {
         }),
       );
 
-      return (response as any).data.stats.floor_price;
+      const stats = (response as any).data?.stats;
+      return {
+        floorPrice: stats?.floor_price ?? null,
+        floorPriceUsd: stats?.floor_price_usd ?? null,
+      };
     } catch (error) {
       this.logger.error(
         `Ошибка получения данных из OpenSea для ${collectionName}: ${error.message}`,
       );
-      return null;
+      return { floorPrice: null, floorPriceUsd: null };
     }
   }
 

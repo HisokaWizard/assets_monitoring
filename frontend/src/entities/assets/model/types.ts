@@ -47,11 +47,23 @@ export interface CryptoAsset extends Asset {
 
 /**
  * NFT актив.
+ *
+ * middlePrice (из базового Asset) хранится в нативном токене (ETH, SOL и т.д.).
+ * floorPrice — floor price в нативном токене (из OpenSea).
+ * floorPriceUsd — floor price в USD (из OpenSea floor_price_usd).
+ * middlePriceUsd — средняя цена покупки в USD (middlePrice * курс токена).
  */
 export interface NFTAsset extends Asset {
   type: 'nft';
   collectionName: string;
+  /** Символ нативного токена коллекции (ETH, SOL, WETH, ATOM и т.д.) */
+  nativeToken: string;
+  /** Floor price в нативном токене (из OpenSea) */
   floorPrice: number;
+  /** Floor price в USD (из OpenSea floor_price_usd) */
+  floorPriceUsd: number;
+  /** Средняя цена покупки в USD (middlePrice * курс nativeToken) */
+  middlePriceUsd: number;
   traitPrice: number;
   dailyPrice: number;
   weeklyPrice: number;
@@ -83,7 +95,10 @@ export interface CreateCryptoAssetDto {
 export interface CreateNFTAssetDto {
   type: 'nft';
   collectionName: string;
+  /** Символ нативного токена коллекции (по умолчанию ETH) */
+  nativeToken?: string;
   amount: number;
+  /** Средняя цена покупки в нативном токене */
   middlePrice: number;
   floorPrice?: number;
   traitPrice?: number;

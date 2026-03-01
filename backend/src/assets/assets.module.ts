@@ -16,7 +16,7 @@ import { HttpModule } from '@nestjs/axios';
 import { AssetsService } from './assets.service';
 import { AssetsController } from './assets.controller';
 import { AssetUpdateService } from './asset-update.service';
-import { Asset } from './asset.entity';
+import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
 import { HistoricalPrice } from './historical-price.entity';
 import { User } from '../auth/user.entity';
 import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
@@ -36,7 +36,7 @@ import { UserSettingsModule } from '../user-settings/user-settings.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Asset, HistoricalPrice, User, NotificationSettings, UserSettings]),
+    TypeOrmModule.forFeature([Asset, CryptoAsset, NFTAsset, HistoricalPrice, User, NotificationSettings, UserSettings]),
     HttpModule,
     UserSettingsModule,
   ],
