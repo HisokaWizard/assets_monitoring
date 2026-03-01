@@ -76,6 +76,11 @@ describe('AssetsService', () => {
           useValue: {
             updateAssetsForUser: jest.fn(),
             updateNFTAsset: jest.fn(),
+            fetchFromOpenSea: jest.fn().mockResolvedValue({
+              floorPrice: null,
+              floorPriceUsd: null,
+              floorPriceSymbol: null,
+            }),
           },
         },
         {
@@ -184,46 +189,63 @@ describe('AssetsService', () => {
       expect(savedAsset.currentPrice).toBe(52000);
     });
 
-    it('should create NFTAsset with all fields', async () => {
+    it('should create NFTAsset with all fields and fetch floor from OpenSea', async () => {
       const createDto: CreateAssetDto = {
         type: 'nft',
         amount: 1,
         middlePrice: 10,
         collectionName: 'Bored Ape Yacht Club',
-        floorPrice: 15,
         traitPrice: 20,
         nativeToken: 'ETH',
       };
 
+      // OpenSea вернёт floorPrice
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: 15,
+        floorPriceUsd: 42000,
+        floorPriceSymbol: 'ETH',
+      });
+
       repository.save.mockResolvedValue(mockNFTAsset);
 
-      const result = await service.create(createDto);
+      await service.create(createDto);
 
       expect(repository.save).toHaveBeenCalled();
       const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
       expect(savedAsset.collectionName).toBe('Bored Ape Yacht Club');
       expect(savedAsset.floorPrice).toBe(15);
+      expect(savedAsset.floorPriceUsd).toBe(42000);
       expect(savedAsset.traitPrice).toBe(20);
     });
 
-    it('should set nativeToken on NFTAsset (defaults to ETH)', async () => {
+    it('should use floorPrice from OpenSea (ignores dto floorPrice when opensea responds)', async () => {
       const createDto: CreateAssetDto = {
         type: 'nft',
         amount: 1,
         middlePrice: 10,
         collectionName: 'BAYC',
-        floorPrice: 15,
       };
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: 20,
+        floorPriceUsd: 56000,
+        floorPriceSymbol: 'ETH',
+      });
 
       repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
 
       await service.create(createDto);
 
       const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.floorPrice).toBe(20);
+      expect(savedAsset.floorPriceUsd).toBe(56000);
+      // nativeToken берётся из OpenSea
       expect(savedAsset.nativeToken).toBe('ETH');
     });
 
-    it('should set custom nativeToken on NFTAsset when provided', async () => {
+    it('should use nativeToken from dto when OpenSea has no data', async () => {
       const createDto: CreateAssetDto = {
         type: 'nft',
         amount: 1,
@@ -231,6 +253,13 @@ describe('AssetsService', () => {
         collectionName: 'SomeCollection',
         nativeToken: 'SOL',
       };
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: null,
+        floorPriceUsd: null,
+        floorPriceSymbol: null,
+      });
 
       repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
 
@@ -240,23 +269,55 @@ describe('AssetsService', () => {
       expect(savedAsset.nativeToken).toBe('SOL');
     });
 
-    it('should calculate middlePriceUsd for NFTAsset using nativeToken price', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
+    it('should default nativeToken to ETH when OpenSea has no data and dto has no nativeToken', async () => {
       const createDto: CreateAssetDto = {
+        type: 'nft',
+        amount: 1,
+        middlePrice: 10,
+        collectionName: 'BAYC',
+      };
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: null,
+        floorPriceUsd: null,
+        floorPriceSymbol: null,
+      });
+
+      repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+
+      await service.create(createDto);
+
+      const savedAsset = repository.save.mock.calls[0][0] as NFTAsset;
+      expect(savedAsset.nativeToken).toBe('ETH');
+    });
+
+    it('should calculate middlePriceUsd for NFTAsset using nativeToken price', async () => {
+      const createDto: CreateAssetDto & { userId?: number } = {
         type: 'nft',
         amount: 2,
         middlePrice: 1.5,
         collectionName: 'BAYC',
         nativeToken: 'ETH',
+        userId: 1,
       };
+
+      const userSettingsService = (service as any).userSettingsService;
+      userSettingsService.getUserSettings.mockResolvedValue({
+        coinmarketcapApiKey: 'test-cmc-key',
+        openseaApiKey: 'test-opensea-key',
+      } as any);
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: 2.0,
+        floorPriceUsd: 5600,
+        floorPriceSymbol: 'ETH',
+      });
 
       const mockEthResponse = {
         status: 200, statusText: 'OK', headers: {}, config: {},
-        data: {
-          data: {
-            ETH: { quote: { USD: { price: 2000 } } },
-          },
-        },
+        data: { data: { ETH: { quote: { USD: { price: 2000 } } } } },
       };
       (httpService.get as jest.Mock).mockReturnValue(of(mockEthResponse as any));
       repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
@@ -269,7 +330,6 @@ describe('AssetsService', () => {
     });
 
     it('should set middlePriceUsd to 0 when token price unavailable', async () => {
-      delete process.env.COINMARKETCAP_API_KEY;
       const createDto: CreateAssetDto = {
         type: 'nft',
         amount: 1,
@@ -277,6 +337,13 @@ describe('AssetsService', () => {
         collectionName: 'BAYC',
         nativeToken: 'ETH',
       };
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: null,
+        floorPriceUsd: null,
+        floorPriceSymbol: null,
+      });
 
       repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
 
@@ -311,15 +378,21 @@ describe('AssetsService', () => {
       expect(savedAsset.totalChange).toBeCloseTo(4, 1);
     });
 
-    it('should initialize change fields to 0 for NFTAsset', async () => {
+    it('should initialize change fields to 0 for NFTAsset and use OpenSea floorPrice', async () => {
       const createDto: CreateAssetDto = {
         type: 'nft',
         amount: 1,
         middlePrice: 10,
         collectionName: 'BAYC',
-        floorPrice: 15,
         traitPrice: 20,
       };
+
+      const assetUpdateService = (service as any).assetUpdateService;
+      assetUpdateService.fetchFromOpenSea.mockResolvedValue({
+        floorPrice: 15,
+        floorPriceUsd: 42000,
+        floorPriceSymbol: 'ETH',
+      });
 
       repository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
 
@@ -333,14 +406,20 @@ describe('AssetsService', () => {
     });
 
     it('should create CryptoAsset without currentPrice - price fetched from API', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
-      const createDto: CreateAssetDto = {
+      const createDto: CreateAssetDto & { userId?: number } = {
         type: 'crypto',
         amount: 1,
         middlePrice: 50000,
         symbol: 'BTC',
         fullName: 'Bitcoin',
+        userId: 1,
       };
+
+      const userSettingsService = (service as any).userSettingsService;
+      userSettingsService.getUserSettings.mockResolvedValue({
+        coinmarketcapApiKey: 'test-cmc-key',
+        openseaApiKey: null,
+      } as any);
 
       const mockResponse = {
         status: 200,
@@ -370,7 +449,8 @@ describe('AssetsService', () => {
     });
 
     it('should create CryptoAsset without currentPrice - API unavailable', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
+      const userSettingsService = (service as any).userSettingsService;
+      userSettingsService.getUserSettings.mockResolvedValue({ coinmarketcapApiKey: 'test-cmc-key' } as any);
       const createDto: CreateAssetDto = {
         type: 'crypto',
         amount: 1,
@@ -462,8 +542,11 @@ describe('AssetsService', () => {
       assetUpdateService = (service as any).assetUpdateService;
     });
 
-    it('should pass openseaApiKey to updateNFTAsset', async () => {
-      userSettingsService.getUserSettings.mockResolvedValue({ openseaApiKey: 'user-opensea-key' } as any);
+    it('should pass openseaApiKey and coinmarketcapApiKey to updateNFTAsset', async () => {
+      userSettingsService.getUserSettings.mockResolvedValue({
+        openseaApiKey: 'user-opensea-key',
+        coinmarketcapApiKey: 'user-cmc-key',
+      } as any);
       repository.find.mockResolvedValue([mockNFTAsset]);
       assetUpdateService.updateNFTAsset.mockResolvedValue(undefined);
 
@@ -472,10 +555,11 @@ describe('AssetsService', () => {
       expect(assetUpdateService.updateNFTAsset).toHaveBeenCalledWith(
         mockNFTAsset,
         'user-opensea-key',
+        'user-cmc-key',
       );
     });
 
-    it('should pass undefined when openseaApiKey not set', async () => {
+    it('should pass undefined when api keys not set', async () => {
       userSettingsService.getUserSettings.mockResolvedValue(null as any);
       repository.find.mockResolvedValue([mockNFTAsset]);
       assetUpdateService.updateNFTAsset.mockResolvedValue(undefined);
@@ -484,6 +568,7 @@ describe('AssetsService', () => {
 
       expect(assetUpdateService.updateNFTAsset).toHaveBeenCalledWith(
         mockNFTAsset,
+        undefined,
         undefined,
       );
     });
@@ -505,7 +590,6 @@ describe('AssetsService', () => {
     const mockPrice = 52000;
 
     it('should return price when API call is successful', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
       const mockResponse = {
         status: 200,
         statusText: 'OK',
@@ -525,14 +609,13 @@ describe('AssetsService', () => {
       };
       (httpService.get as jest.Mock).mockReturnValue(of(mockResponse as any));
 
-      const result = await service.getCryptoPrice('BTC');
+      const result = await service.getCryptoPrice('BTC', 'test-api-key');
 
       expect(httpService.get).toHaveBeenCalled();
       expect(result).toBe(mockPrice);
     });
 
     it('should return null when API returns null data', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
       const mockResponse = {
         status: 200,
         statusText: 'OK',
@@ -544,32 +627,24 @@ describe('AssetsService', () => {
       };
       (httpService.get as jest.Mock).mockImplementation(() => of(mockResponse as any));
 
-      const result = await service.getCryptoPrice('INVALID');
+      const result = await service.getCryptoPrice('INVALID', 'test-api-key');
 
       expect(result).toBeNull();
     });
 
-    it('should return null when API key is not set', async () => {
-      const originalKey = process.env.COINMARKETCAP_API_KEY;
-      delete process.env.COINMARKETCAP_API_KEY;
-
+    it('should return null when API key is not provided', async () => {
       const result = await service.getCryptoPrice('BTC');
 
       expect(result).toBeNull();
       expect(httpService.get).not.toHaveBeenCalled();
-
-      if (originalKey) {
-        process.env.COINMARKETCAP_API_KEY = originalKey;
-      }
     });
 
     it('should return null when API throws error', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test-api-key';
       (httpService.get as jest.Mock).mockImplementation(() =>
         throwError(() => new Error('Network error')),
       );
 
-      const result = await service.getCryptoPrice('BTC');
+      const result = await service.getCryptoPrice('BTC', 'test-api-key');
 
       expect(result).toBeNull();
     });

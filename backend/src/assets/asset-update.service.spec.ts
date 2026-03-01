@@ -73,6 +73,7 @@ describe('AssetUpdateService', () => {
         {
           provide: getRepositoryToken(HistoricalPrice),
           useValue: {
+            find: jest.fn().mockResolvedValue([]),
             create: jest.fn(),
             save: jest.fn(),
           },
@@ -194,7 +195,6 @@ describe('AssetUpdateService', () => {
         }
       }) as any);
 
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       const result = await service.updateAssetsForUsers();
 
@@ -232,8 +232,6 @@ describe('AssetUpdateService', () => {
         }
       }) as any);
 
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
-      process.env.OPENSEA_API_KEY = 'test_key';
 
       const result = await service.updateAssetsForUsers();
 
@@ -243,7 +241,6 @@ describe('AssetUpdateService', () => {
 
   describe('API calls', () => {
     it('should call CoinMarketCap API with correct URL', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       httpService.get.mockReturnValue(of({
         data: {
@@ -271,11 +268,15 @@ describe('AssetUpdateService', () => {
     });
 
     it('should call OpenSea API with correct URL', async () => {
-      process.env.OPENSEA_API_KEY = 'test_key';
 
-      httpService.get.mockReturnValue(of({
-        data: { stats: { floor_price: 20, floor_price_usd: 56000 } }
-      }) as any);
+      // First call: OpenSea, second call: CoinMarketCap for ETH price
+      httpService.get
+        .mockReturnValueOnce(of({
+          data: { total: { floor_price: 20, floor_price_symbol: 'ETH' } }
+        }) as any)
+        .mockReturnValueOnce(of({
+          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
+        }) as any);
 
       const oldDate = new Date('2024-01-01');
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
@@ -295,7 +296,6 @@ describe('AssetUpdateService', () => {
     });
 
     it('should update asset price from API', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       httpService.get.mockReturnValue(of({
         data: {
@@ -318,7 +318,6 @@ describe('AssetUpdateService', () => {
     });
 
     it('should save historical price', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       httpService.get.mockReturnValue(of({
         data: {
@@ -342,12 +341,15 @@ describe('AssetUpdateService', () => {
   });
 
   describe('NFT specific', () => {
-    it('should extract floor_price_usd from OpenSea response', async () => {
-      process.env.OPENSEA_API_KEY = 'test_key';
-
-      httpService.get.mockReturnValue(of({
-        data: { stats: { floor_price: 2.0, floor_price_usd: 5600 } }
-      }) as any);
+    it('should parse floor_price from OpenSea total field and calculate floorPriceUsd', async () => {
+      // First call: OpenSea (floor_price in ETH), second call: CoinMarketCap (ETH/USD price)
+      httpService.get
+        .mockReturnValueOnce(of({
+          data: { total: { floor_price: 2.0, floor_price_symbol: 'ETH' } }
+        }) as any)
+        .mockReturnValueOnce(of({
+          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
+        }) as any);
 
       const oldDate = new Date('2024-01-01');
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
@@ -362,32 +364,57 @@ describe('AssetUpdateService', () => {
       expect(assetsRepository.save).toHaveBeenCalled();
       const savedAsset = assetsRepository.save.mock.calls[0][0] as NFTAsset;
       expect(savedAsset.floorPrice).toBe(2.0);
-      expect(savedAsset.floorPriceUsd).toBe(5600);
+      // floorPriceUsd = 2.0 * 2800 = 5600
+      expect(savedAsset.floorPriceUsd).toBeCloseTo(5600, 0);
     });
 
-    it('should update NFT asset with both floorPrice and floorPriceUsd', async () => {
-      httpService.get.mockReturnValue(of({
-        data: { stats: { floor_price: 3.5, floor_price_usd: 9800 } }
-      }) as any);
+    it('should update NFT asset with floorPrice and calculated floorPriceUsd', async () => {
+      // First call: OpenSea, second call: CoinMarketCap for ETH
+      httpService.get
+        .mockReturnValueOnce(of({
+          data: { total: { floor_price: 3.5, floor_price_symbol: 'ETH' } }
+        }) as any)
+        .mockReturnValueOnce(of({
+          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
+        }) as any);
 
       assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
       historicalPriceRepository.create.mockReturnValue({} as any);
       historicalPriceRepository.save.mockResolvedValue({} as any);
 
-      await service.updateNFTAsset(mockNFTAsset, 'test_key');
+      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
 
       expect(mockNFTAsset.floorPrice).toBe(3.5);
-      expect(mockNFTAsset.floorPriceUsd).toBe(9800);
+      // floorPriceUsd = 3.5 * 2800 = 9800
+      expect(mockNFTAsset.floorPriceUsd).toBeCloseTo(9800, 0);
     });
 
-    it('should not update NFT asset when floorPrice is null', async () => {
+    it('should update nativeToken from OpenSea floorPriceSymbol', async () => {
+      httpService.get
+        .mockReturnValueOnce(of({
+          data: { total: { floor_price: 1.0, floor_price_symbol: 'SOL' } }
+        }) as any)
+        .mockReturnValueOnce(of({
+          data: { data: { SOL: { quote: { USD: { price: 150 } } } } }
+        }) as any);
+
+      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+      historicalPriceRepository.create.mockReturnValue({} as any);
+      historicalPriceRepository.save.mockResolvedValue({} as any);
+
+      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
+
+      expect(mockNFTAsset.nativeToken).toBe('SOL');
+    });
+
+    it('should not update NFT asset when OpenSea returns no total data', async () => {
       httpService.get.mockReturnValue(of({
-        data: { stats: null }
+        data: { total: null }
       }) as any);
 
       assetsRepository.save.mockClear();
 
-      await service.updateNFTAsset(mockNFTAsset, 'test_key');
+      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
 
       expect(assetsRepository.save).not.toHaveBeenCalled();
     });
@@ -395,7 +422,6 @@ describe('AssetUpdateService', () => {
 
   describe('error handling', () => {
     it('should log error on API failure', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
       const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       httpService.get.mockImplementation(() => {
@@ -415,7 +441,6 @@ describe('AssetUpdateService', () => {
     });
 
     it('should continue with other assets on error', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       httpService.get.mockImplementation(() => {
         throw new Error('API Error');
@@ -434,7 +459,6 @@ describe('AssetUpdateService', () => {
     });
 
     it('should handle missing API key gracefully', async () => {
-      delete process.env.COINMARKETCAP_API_KEY;
 
       const oldDate = new Date('2024-01-01');
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
@@ -447,7 +471,6 @@ describe('AssetUpdateService', () => {
     });
 
     it('should not crash on error', async () => {
-      process.env.COINMARKETCAP_API_KEY = 'test_key';
 
       httpService.get.mockImplementation(() => {
         throw new Error('Network error');

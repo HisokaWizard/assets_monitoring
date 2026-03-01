@@ -72,8 +72,19 @@ export class AssetsService {
     let asset: Asset;
     let currentPrice: number | null = null;
 
+    // Получить ключи пользователя один раз для любого типа актива
+    let coinmarketcapApiKey: string | undefined;
+    let openseaApiKey: string | undefined;
+    if (createAssetDto.userId) {
+      const userSettings = await this.userSettingsService.getUserSettings({
+        id: createAssetDto.userId,
+      } as User);
+      coinmarketcapApiKey = userSettings?.coinmarketcapApiKey || undefined;
+      openseaApiKey = userSettings?.openseaApiKey || undefined;
+    }
+
     if (createAssetDto.type === 'crypto') {
-      currentPrice = createAssetDto.currentPrice || (await this.getCryptoPrice(createAssetDto.symbol!));
+      currentPrice = createAssetDto.currentPrice || (await this.getCryptoPrice(createAssetDto.symbol!, coinmarketcapApiKey));
 
       asset = new CryptoAsset();
       asset.type = 'crypto';
@@ -96,18 +107,26 @@ export class AssetsService {
       (asset as CryptoAsset).fullName = createAssetDto.fullName!;
       (asset as CryptoAsset).currentPrice = currentPrice || 0;
     } else {
-      let floorPrice = createAssetDto.floorPrice;
+      const collectionName = createAssetDto.collectionName!;
 
-      if (!floorPrice) {
-        floorPrice = (await this.getNFTPrice(createAssetDto.collectionName!, createAssetDto.userId)) || 0;
+      // Получить актуальный floorPrice и floorPriceUsd из OpenSea (оба ключа пользователя)
+      let floorPrice = createAssetDto.floorPrice || 0;
+      let floorPriceUsd = 0;
+      let nativeToken = createAssetDto.nativeToken || 'ETH';
+
+      const opensea = await this.assetUpdateService.fetchFromOpenSea(collectionName, openseaApiKey, coinmarketcapApiKey);
+      if (opensea.floorPrice !== null) {
+        floorPrice = opensea.floorPrice;
+        floorPriceUsd = opensea.floorPriceUsd ?? 0;
+        // Использовать токен из OpenSea как авторитетный источник
+        if (opensea.floorPriceSymbol) {
+          nativeToken = opensea.floorPriceSymbol;
+        }
       }
 
-      // Определить нативный токен коллекции (по умолчанию ETH)
-      const nativeToken = createAssetDto.nativeToken || 'ETH';
-
-      // Рассчитать middlePriceUsd = middlePrice * курс нативного токена
+      // Рассчитать middlePriceUsd = middlePrice * курс нативного токена (ключ пользователя)
       let middlePriceUsd = 0;
-      const tokenPrice = await this.getCryptoPrice(nativeToken);
+      const tokenPrice = await this.getCryptoPrice(nativeToken, coinmarketcapApiKey);
       if (tokenPrice && createAssetDto.middlePrice) {
         middlePriceUsd = createAssetDto.middlePrice * tokenPrice;
       }
@@ -129,10 +148,10 @@ export class AssetsService {
         ? ((floorPrice - createAssetDto.middlePrice) / createAssetDto.middlePrice) * 100
         : 0;
       asset.userId = createAssetDto.userId || 0;
-      (asset as NFTAsset).collectionName = createAssetDto.collectionName!;
+      (asset as NFTAsset).collectionName = collectionName;
       (asset as NFTAsset).nativeToken = nativeToken;
       (asset as NFTAsset).floorPrice = floorPrice;
-      (asset as NFTAsset).floorPriceUsd = 0; // будет заполнено при первом refresh
+      (asset as NFTAsset).floorPriceUsd = floorPriceUsd;
       (asset as NFTAsset).middlePriceUsd = middlePriceUsd;
       (asset as NFTAsset).traitPrice = createAssetDto.traitPrice || 0;
     }
@@ -161,11 +180,10 @@ export class AssetsService {
     await this.assetsRepository.delete(id);
   }
 
-  async getCryptoPrice(symbol: string): Promise<number | null> {
+  async getCryptoPrice(symbol: string, apiKey?: string): Promise<number | null> {
     try {
-      const apiKey = process.env.COINMARKETCAP_API_KEY;
       if (!apiKey) {
-        this.logger.warn('CoinMarketCap API key не установлен');
+        this.logger.warn('CoinMarketCap API key не установлен для пользователя');
         return null;
       }
 
@@ -184,38 +202,6 @@ export class AssetsService {
     }
   }
 
-  async getNFTPrice(collectionName: string, userId?: number): Promise<number | null> {
-    try {
-      let apiKey: string | undefined;
-      
-      if (userId) {
-        const userSettings = await this.userSettingsService.getUserSettings({ id: userId } as User);
-        apiKey = userSettings?.openseaApiKey;
-      }
-      
-      if (!apiKey) {
-        apiKey = process.env.OPENSEA_API_KEY;
-      }
-
-      if (!apiKey) {
-        this.logger.warn('OpenSea API key не установлен');
-        return null;
-      }
-
-      const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          headers: { 'X-API-KEY': apiKey },
-        }),
-      );
-
-      return (response as any).data?.stats?.floor_price || null;
-    } catch (error) {
-      this.logger.error(`Ошибка получения цены NFT ${collectionName}: ${error.message}`);
-      return null;
-    }
-  }
-
   async refreshAll(userId: number): Promise<Asset[]> {
     await this.assetUpdateService.updateAssetsForUser(userId);
     return this.assetsRepository.find({ where: { userId } });
@@ -224,13 +210,14 @@ export class AssetsService {
   async refreshNFTs(userId: number): Promise<Asset[]> {
     const nftAssets = await this.assetsRepository.find({ where: { userId, type: 'nft' } });
 
-    // Получить API ключ пользователя
+    // Получить API ключи пользователя
     const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
     const openseaApiKey = userSettingsData?.openseaApiKey || undefined;
+    const coinmarketcapApiKey = userSettingsData?.coinmarketcapApiKey || undefined;
 
     for (const asset of nftAssets) {
       try {
-        await this.assetUpdateService.updateNFTAsset(asset as NFTAsset, openseaApiKey);
+        await this.assetUpdateService.updateNFTAsset(asset as NFTAsset, openseaApiKey, coinmarketcapApiKey);
       } catch (error) {
         this.logger.error(`Ошибка обновления NFT ${asset.id}: ${error.message}`);
       }

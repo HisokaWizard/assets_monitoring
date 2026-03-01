@@ -95,7 +95,7 @@ export class AssetUpdateService {
             if (asset.type === 'crypto') {
               await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
             } else if (asset.type === 'nft') {
-              await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined);
+              await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined, coinmarketcapApiKey || undefined);
             }
             updatedAssetIds.push(asset.id);
           } catch (error) {
@@ -131,7 +131,7 @@ export class AssetUpdateService {
         if (asset.type === 'crypto') {
           await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
         } else if (asset.type === 'nft') {
-          await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined);
+          await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined, coinmarketcapApiKey || undefined);
         }
         updatedAssetIds.push(asset.id);
       } catch (error) {
@@ -146,11 +146,17 @@ export class AssetUpdateService {
    * Обновить криптоактив.
    */
   private async updateCryptoAsset(asset: CryptoAsset, apiKey?: string): Promise<void> {
-    const currentPrice = await this.fetchFromCoinMarketCap(asset.symbol, apiKey);
-    if (currentPrice) {
-      asset.currentPrice = currentPrice;
+    const newPrice = await this.fetchFromCoinMarketCap(asset.symbol, apiKey);
+    if (newPrice) {
+      // Запомнить предыдущую цену перед обновлением
+      asset.previousPrice = asset.currentPrice || 0;
+      asset.currentPrice = newPrice;
+      // Пересчитать multiple
+      asset.multiple = asset.middlePrice ? newPrice / asset.middlePrice : 0;
+      // Сохранить историческую цену (USD)
+      await this.saveHistoricalPrice(asset.id, newPrice, 'CoinMarketCap');
+      // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
-      await this.saveHistoricalPrice(asset.id, currentPrice, 'CoinMarketCap');
       await this.assetsRepository.save(asset);
     }
   }
@@ -158,18 +164,38 @@ export class AssetUpdateService {
   /**
    * Обновить NFT актив.
    *
-   * Получает floorPrice (в нативном токене) и floorPriceUsd из OpenSea,
-   * сохраняет оба значения в активе.
+   * Получает floorPrice (в нативном токене), floorPriceSymbol и рассчитывает
+   * floorPriceUsd через курс токена из CoinMarketCap.
    */
-  async updateNFTAsset(asset: NFTAsset, apiKey?: string): Promise<void> {
-    const { floorPrice, floorPriceUsd } = await this.fetchFromOpenSea(asset.collectionName, apiKey);
+  async updateNFTAsset(asset: NFTAsset, openseaApiKey?: string, coinmarketcapApiKey?: string): Promise<void> {
+    const { floorPrice, floorPriceUsd, floorPriceSymbol } = await this.fetchFromOpenSea(
+      asset.collectionName,
+      openseaApiKey,
+      coinmarketcapApiKey,
+    );
     if (floorPrice !== null) {
+      // Запомнить предыдущую цену перед обновлением
+      asset.previousPrice = asset.floorPrice || 0;
       asset.floorPrice = floorPrice;
       if (floorPriceUsd !== null) {
         asset.floorPriceUsd = floorPriceUsd;
       }
+      // Обновить nativeToken из OpenSea если он пришёл (авторитетный источник)
+      if (floorPriceSymbol) {
+        asset.nativeToken = floorPriceSymbol;
+      }
+      // Пересчитать multiple
+      asset.multiple = asset.middlePrice ? floorPrice / asset.middlePrice : 0;
+      // Пересчитать middlePriceUsd по актуальному курсу токена
+      if (floorPriceUsd !== null && floorPrice > 0) {
+        const tokenUsdRate = floorPriceUsd / floorPrice;
+        asset.middlePriceUsd = asset.middlePrice ? asset.middlePrice * tokenUsdRate : 0;
+      }
+      // Сохранить историческую цену (USD для единообразия)
+      const priceForHistory = floorPriceUsd ?? floorPrice;
+      await this.saveHistoricalPrice(asset.id, priceForHistory, 'OpenSea');
+      // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
-      await this.saveHistoricalPrice(asset.id, floorPrice, 'OpenSea');
       await this.assetsRepository.save(asset);
     }
   }
@@ -179,9 +205,9 @@ export class AssetUpdateService {
    */
   private async fetchFromCoinMarketCap(symbol: string, apiKey?: string): Promise<number | null> {
     try {
-      const key = apiKey || process.env.COINMARKETCAP_API_KEY;
+      const key = apiKey;
       if (!key) {
-        this.logger.warn('CoinMarketCap API key не установлен');
+        this.logger.warn('CoinMarketCap API key не установлен для пользователя');
         return null;
       }
 
@@ -201,20 +227,24 @@ export class AssetUpdateService {
   }
 
   /**
-   * Получить данные из OpenSea API.
+   * Получить данные из OpenSea API v2.
    *
-   * Возвращает объект с floorPrice (нативный токен) и floorPriceUsd (USD).
-   * OpenSea API v2 /collections/{slug}/stats возвращает оба значения.
+   * OpenSea API v2 /collections/{slug}/stats возвращает данные в поле `total`:
+   *   - total.floor_price — цена пола в нативном токене
+   *   - total.floor_price_symbol — символ токена (ETH, SOL, WETH и т.д.)
+   *
+   * floorPriceUsd рассчитывается как floorPrice * курс токена через CoinMarketCap.
    */
-  private async fetchFromOpenSea(
+  async fetchFromOpenSea(
     collectionName: string,
-    apiKey?: string,
-  ): Promise<{ floorPrice: number | null; floorPriceUsd: number | null }> {
+    openseaApiKey?: string,
+    coinmarketcapApiKey?: string,
+  ): Promise<{ floorPrice: number | null; floorPriceUsd: number | null; floorPriceSymbol: string | null }> {
     try {
-      const key = apiKey || process.env.OPENSEA_API_KEY;
+      const key = openseaApiKey;
       if (!key) {
-        this.logger.warn('OpenSea API key не установлен');
-        return { floorPrice: null, floorPriceUsd: null };
+        this.logger.warn('OpenSea API key не установлен для пользователя');
+        return { floorPrice: null, floorPriceUsd: null, floorPriceSymbol: null };
       }
 
       const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
@@ -224,120 +254,92 @@ export class AssetUpdateService {
         }),
       );
 
-      const stats = (response as any).data?.stats;
-      return {
-        floorPrice: stats?.floor_price ?? null,
-        floorPriceUsd: stats?.floor_price_usd ?? null,
-      };
+      // OpenSea API v2: данные находятся в поле "total", а не "stats"
+      const total = (response as any).data?.total;
+      const floorPrice: number | null = total?.floor_price ?? null;
+      const floorPriceSymbol: string | null = total?.floor_price_symbol ?? null;
+
+      // Рассчитать floorPriceUsd через CoinMarketCap (ключ пользователя)
+      let floorPriceUsd: number | null = null;
+      if (floorPrice !== null && floorPriceSymbol) {
+        const tokenPrice = await this.fetchFromCoinMarketCap(floorPriceSymbol, coinmarketcapApiKey);
+        if (tokenPrice !== null) {
+          floorPriceUsd = floorPrice * tokenPrice;
+        }
+      }
+
+      return { floorPrice, floorPriceUsd, floorPriceSymbol };
     } catch (error) {
       this.logger.error(
         `Ошибка получения данных из OpenSea для ${collectionName}: ${error.message}`,
       );
-      return { floorPrice: null, floorPriceUsd: null };
+      return { floorPrice: null, floorPriceUsd: null, floorPriceSymbol: null };
     }
   }
 
   /**
-   * Вычислить изменения и обновить поля.
+   * Вычислить изменения на основе исторических данных.
+   *
+   * Для каждого периода (день, неделя, месяц, квартал, год) находим в historical_price
+   * ближайшую запись, которая старше порогового времени — и считаем % и $ изменение
+   * относительно неё. Если данных за период нет — значение остаётся 0.
+   *
+   * Для crypto: currentPrice в USD, история хранит USD-цены.
+   * Для NFT: floorPriceUsd в USD, история хранит USD-цены (floorPriceUsd).
+   *
+   * middlePrice для crypto — в USD. Для NFT middlePriceUsd — в USD.
    */
   private async calculateChanges(asset: CryptoAsset | NFTAsset): Promise<void> {
-    const now = new Date();
-    const currentPrice = asset instanceof CryptoAsset ? asset.currentPrice : asset.floorPrice;
+    const isCrypto = asset instanceof CryptoAsset;
+    const currentPrice = isCrypto
+      ? (asset as CryptoAsset).currentPrice
+      : ((asset as NFTAsset).floorPriceUsd ?? (asset as NFTAsset).floorPrice);
 
-    // Инициализация, если не установлено
-    if (!asset.dailyPrice) {
-      asset.dailyPrice = currentPrice;
-      asset.dailyTimestamp = now;
-    }
-    if (!asset.weeklyPrice) {
-      asset.weeklyPrice = currentPrice;
-      asset.weeklyTimestamp = now;
-    }
-    if (!asset.monthlyPrice) {
-      asset.monthlyPrice = currentPrice;
-      asset.monthlyTimestamp = now;
-    }
-    if (!asset.quartPrice) {
-      asset.quartPrice = currentPrice;
-      asset.quartTimestamp = now;
-    }
-    if (!asset.yearPrice) {
-      asset.yearPrice = currentPrice;
-      asset.yearTimestamp = now;
-    }
+    const middlePriceUsd = isCrypto
+      ? asset.middlePrice
+      : ((asset as NFTAsset).middlePriceUsd ?? asset.middlePrice);
 
-    // Обновление ежедневно
-    if (this.shouldUpdate(asset.dailyTimestamp, 1, 'day')) {
-      asset.dailyChange = this.calculateChange(asset.dailyPrice, currentPrice);
-      asset.dailyPrice = currentPrice;
-      asset.dailyTimestamp = now;
-    }
+    // Получить историю для актива (последние 400 записей — достаточно для года)
+    const history = await this.historicalPriceRepository.find({
+      where: { assetId: asset.id },
+      order: { timestamp: 'DESC' },
+      take: 400,
+    });
 
-    // Обновление еженедельно
-    if (this.shouldUpdate(asset.weeklyTimestamp, 1, 'week')) {
-      asset.weeklyChange = this.calculateChange(asset.weeklyPrice, currentPrice);
-      asset.weeklyPrice = currentPrice;
-      asset.weeklyTimestamp = now;
-    }
+    const now = Date.now();
 
-    // Обновление ежемесячно
-    if (this.shouldUpdate(asset.monthlyTimestamp, 1, 'month')) {
-      asset.monthlyChange = this.calculateChange(asset.monthlyPrice, currentPrice);
-      asset.monthlyPrice = currentPrice;
-      asset.monthlyTimestamp = now;
-    }
+    // Пороги периодов в миллисекундах
+    const periods: Array<{
+      minAge: number;
+      changeField: keyof typeof asset;
+      changeUsdField: keyof typeof asset;
+    }> = [
+      { minAge: 24 * 60 * 60 * 1000,           changeField: 'dailyChange',   changeUsdField: 'dailyChangeUsd' },
+      { minAge: 7 * 24 * 60 * 60 * 1000,        changeField: 'weeklyChange',  changeUsdField: 'weeklyChangeUsd' },
+      { minAge: 30 * 24 * 60 * 60 * 1000,       changeField: 'monthlyChange', changeUsdField: 'monthlyChangeUsd' },
+      { minAge: 90 * 24 * 60 * 60 * 1000,       changeField: 'quartChange',   changeUsdField: 'quartChangeUsd' },
+      { minAge: 365 * 24 * 60 * 60 * 1000,      changeField: 'yearChange',    changeUsdField: 'yearChangeUsd' },
+    ];
 
-    // Обновление ежеквартально
-    if (this.shouldUpdate(asset.quartTimestamp, 3, 'month')) {
-      asset.quartChange = this.calculateChange(asset.quartPrice, currentPrice);
-      asset.quartPrice = currentPrice;
-      asset.quartTimestamp = now;
+    for (const { minAge, changeField, changeUsdField } of periods) {
+      // Найти ближайшую запись старше minAge (т.е. первую запись что старше порога)
+      const threshold = now - minAge;
+      const refRecord = history.find(h => new Date(h.timestamp).getTime() <= threshold);
+      if (refRecord) {
+        const refPrice = Number(refRecord.price);
+        (asset as any)[changeField] = refPrice !== 0
+          ? ((currentPrice - refPrice) / refPrice) * 100
+          : 0;
+        (asset as any)[changeUsdField] = currentPrice - refPrice;
+      }
+      // Если записей за период нет — оставляем текущее значение (не обнуляем)
     }
 
-    // Обновление ежегодно
-    if (this.shouldUpdate(asset.yearTimestamp, 1, 'year')) {
-      asset.yearChange = this.calculateChange(asset.yearPrice, currentPrice);
-      asset.yearPrice = currentPrice;
-      asset.yearTimestamp = now;
-    }
-
-    // Общее изменение
-    asset.totalChange = this.calculateChange(asset.middlePrice, currentPrice);
-  }
-
-  /**
-   * Проверить, нужно ли обновлять на основе временного интервала.
-   */
-  private shouldUpdate(
-    lastUpdate: Date,
-    amount: number,
-    unit: 'day' | 'week' | 'month' | 'year',
-  ): boolean {
-    if (!lastUpdate) return true;
-
-    const now = new Date();
-    const diffTime = now.getTime() - lastUpdate.getTime();
-
-    switch (unit) {
-      case 'day':
-        return diffTime >= amount * 24 * 60 * 60 * 1000;
-      case 'week':
-        return diffTime >= amount * 7 * 24 * 60 * 60 * 1000;
-      case 'month':
-        return diffTime >= amount * 30 * 24 * 60 * 60 * 1000;
-      case 'year':
-        return diffTime >= amount * 365 * 24 * 60 * 60 * 1000;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Вычислить процентное изменение.
-   */
-  private calculateChange(oldPrice: number, newPrice: number): number {
-    if (oldPrice === 0) return 0;
-    return ((newPrice - oldPrice) / oldPrice) * 100;
+    // totalChange % и $ vs средней цены покупки
+    asset.totalChange = middlePriceUsd !== 0
+      ? ((currentPrice - middlePriceUsd) / middlePriceUsd) * 100
+      : 0;
+    asset.totalChangeUsd = currentPrice - middlePriceUsd;
   }
 
   /**

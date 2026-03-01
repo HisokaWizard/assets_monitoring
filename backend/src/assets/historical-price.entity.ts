@@ -33,7 +33,7 @@ export class HistoricalPrice {
   /**
    * Связь с активом.
    */
-  @ManyToOne(() => Asset)
+  @ManyToOne(() => Asset, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'assetId' })
   asset: Asset;
 

@@ -99,10 +99,46 @@ export class Asset {
   yearChange: number;
 
   /**
-   * Общее изменение.
+   * Общее изменение (%).
    */
   @Column('decimal')
   totalChange: number;
+
+  /**
+   * Изменение за день ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  dailyChangeUsd: number;
+
+  /**
+   * Изменение за неделю ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  weeklyChangeUsd: number;
+
+  /**
+   * Изменение за месяц ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  monthlyChangeUsd: number;
+
+  /**
+   * Изменение за квартал ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  quartChangeUsd: number;
+
+  /**
+   * Изменение за год ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  yearChangeUsd: number;
+
+  /**
+   * Общее изменение ($).
+   */
+  @Column({ type: 'decimal', nullable: true, default: 0 })
+  totalChangeUsd: number;
 
   /**
    * Цена за день.
