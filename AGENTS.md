@@ -18,11 +18,11 @@
 
 **Стек:**
 
-| Слой | Технологии |
-|------|-----------|
-| Backend | NestJS, TypeORM, PostgreSQL, Jest |
-| Frontend | React 18+, Redux (RTK), MUI, Playwright, FSD-архитектура |
-| Общее | TypeScript 5+ (`strict: true`), documents_hub как источник конвенций |
+| Слой     | Технологии                                                           |
+| -------- | -------------------------------------------------------------------- |
+| Backend  | NestJS, TypeORM, PostgreSQL, Jest                                    |
+| Frontend | React 18+, Redux (RTK), MUI, Playwright, FSD-архитектура             |
+| Общее    | TypeScript 5+ (`strict: true`), documents_hub как источник конвенций |
 
 ---
 
@@ -68,18 +68,18 @@ Backend и frontend — независимые части системы. Каж
 
 ## 3. Мультиагентная система
 
-Вся разработка ведется через систему из 6 специализированных агентов. Конфигурация агентов — в `opencode.json` (блок `"agent"`), промпты — в `.opencode/prompts/*.txt`.
+Вся разработка ведется через систему из 6 специализированных агентов. Конфигурация агентов — в `opencode.json` (блок `"agent"`), промпты — в `.opencode/prompts/*.md`.
 
 ### 3.1. Агенты и их роли
 
-| Агент | Тип | Промпт | Роль |
-|-------|-----|--------|------|
-| **architect** | `primary` | `.opencode/prompts/architect.txt` | Оркестратор. Принимает задачи, координирует саб-агентов, обновляет STATUS.md. Не пишет код. |
-| **planner** | `subagent` | `.opencode/prompts/planner.txt` | Планировщик. Собирает контекст из `contextDocs`, декомпозирует на 3-5 sub_task, создает файлы в `.opencode/features/`. |
-| **tester** | `subagent` | `.opencode/prompts/tester.txt` | Тестировщик. TDD: Red (тесты падают), Green (тесты проходят), Validation (регрессия + coverage 80%). |
-| **backend-dev** | `subagent` | `.opencode/prompts/backend-dev.txt` | Backend-разработчик. NestJS, TypeORM, JWT. Реализует код по готовым тестам. |
-| **frontend-dev** | `subagent` | `.opencode/prompts/frontend-dev.txt` | Frontend-разработчик. React 18+, Redux Toolkit, MUI, FSD. Реализует код по готовым тестам. |
-| **code-reviewer** | `subagent` | `.opencode/prompts/code-reviewer.txt` | Ревьювер. Проверяет архитектуру, типизацию, безопасность, документацию. Approve / Request changes. |
+| Агент             | Тип        | Промпт                               | Роль                                                                                                                   |
+| ----------------- | ---------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| **architect**     | `primary`  | `.opencode/prompts/architect.md`     | Оркестратор. Принимает задачи, координирует саб-агентов, обновляет STATUS.md. Не пишет код.                            |
+| **planner**       | `subagent` | `.opencode/prompts/planner.md`       | Планировщик. Собирает контекст из `contextDocs`, декомпозирует на 3-5 sub_task, создает файлы в `.opencode/features/`. |
+| **tester**        | `subagent` | `.opencode/prompts/tester.md`        | Тестировщик. TDD: Red (тесты падают), Green (тесты проходят), Validation (регрессия + coverage 80%).                   |
+| **backend-dev**   | `subagent` | `.opencode/prompts/backend-dev.md`   | Backend-разработчик. NestJS, TypeORM, JWT. Реализует код по готовым тестам.                                            |
+| **frontend-dev**  | `subagent` | `.opencode/prompts/frontend-dev.md`  | Frontend-разработчик. React 18+, Redux Toolkit, MUI, FSD. Реализует код по готовым тестам.                             |
+| **code-reviewer** | `subagent` | `.opencode/prompts/code-reviewer.md` | Ревьювер. Проверяет архитектуру, типизацию, безопасность, документацию. Approve / Request changes.                     |
 
 ### 3.2. Порядок оркестрации
 
@@ -100,13 +100,13 @@ Backend и frontend — независимые части системы. Каж
 ```
 opencode.json                    # Декларация всех агентов (блок "agent")
 .opencode/
-├── prompts/                     # Изолированные промпт-файлы
-│   ├── architect.txt
-│   ├── planner.txt
-│   ├── tester.txt
-│   ├── backend-dev.txt
-│   ├── frontend-dev.txt
-│   └── code-reviewer.txt
+├── agents/                     # Изолированные промпт-файлы
+│   ├── architect.md
+│   ├── planner.md
+│   ├── tester.md
+│   ├── backend-dev.md
+│   ├── frontend-dev.md
+│   └── code-reviewer.md
 ├── skills/                      # Скиллы агентов
 │   ├── debugger/SKILL.md
 │   └── tdd-workflow/SKILL.md
@@ -270,7 +270,7 @@ git clone https://github.com/HisokaWizard/documents_hub.git "$DOCUMENTS_HUB_PATH
 ### 6.2. Формат STATUS.md
 
 ```markdown
-# Status: feat_{N}
+# Status: feat\_{N}
 
 - **Current:** to do | in progress | done | closed
 - **Started:** YYYY-MM-DD HH:MM
@@ -302,13 +302,13 @@ git clone https://github.com/HisokaWizard/documents_hub.git "$DOCUMENTS_HUB_PATH
 
 ### 7.1. Типы документации
 
-| Тип | Инструмент | Триггер обновления |
-|-----|-----------|-------------------|
-| API-документация | Swagger/OpenAPI декораторы в NestJS | Изменение контроллеров/DTO |
-| Архитектурная документация | Markdown в `docs/` | Добавление модулей, изменение схемы БД |
-| Changelog | Conventional commits | Каждый PR/коммит |
-| Компонентная документация | Storybook | Изменение компонентов в `shared/ui/`, `widgets/` |
-| Схема БД | ER-диаграмма из TypeORM entities | Изменение entity-файлов |
+| Тип                        | Инструмент                          | Триггер обновления                               |
+| -------------------------- | ----------------------------------- | ------------------------------------------------ |
+| API-документация           | Swagger/OpenAPI декораторы в NestJS | Изменение контроллеров/DTO                       |
+| Архитектурная документация | Markdown в `docs/`                  | Добавление модулей, изменение схемы БД           |
+| Changelog                  | Conventional commits                | Каждый PR/коммит                                 |
+| Компонентная документация  | Storybook                           | Изменение компонентов в `shared/ui/`, `widgets/` |
+| Схема БД                   | ER-диаграмма из TypeORM entities    | Изменение entity-файлов                          |
 
 ### 7.2. Правила поддержания документации
 
