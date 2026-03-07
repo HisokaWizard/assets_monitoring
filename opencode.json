@@ -1,0 +1,242 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-opus-4-6",
+  "small_model": "anthropic/claude-haiku-4-5",
+  "default_agent": "architect",
+  "autoupdate": true,
+  "share": "manual",
+  "instructions": ["AGENTS.md"],
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".git/**",
+      "coverage/**",
+      "*.sqlite",
+      "backend/database.sqlite",
+      "frontend/playwright-report/**",
+      "frontend/test-results/**"
+    ]
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    }
+  },
+  "agent": {
+    "architect": {
+      "description": "Агент-архитектор (оркестратор). Центральный агент, принимающий задачу от пользователя и координирующий работу всех саб-агентов. Сам НЕ пишет код — только управляет процессом.",
+      "mode": "primary",
+      "model": "anthropic/claude-opus-4-6",
+      "temperature": 0.2,
+      "color": "#6366f1",
+      "prompt": "{file:.opencode/agents/architect.md}",
+      "tools": {
+        "write": true,
+        "edit": false,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": true,
+        "todo": true,
+        "task": true
+      },
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "ask",
+          "git status*": "allow",
+          "git log*": "allow",
+          "git diff*": "allow"
+        },
+        "task": {
+          "planner": "allow",
+          "tester": "allow",
+          "backend-dev": "allow",
+          "frontend-dev": "allow",
+          "code-reviewer": "allow",
+          "*": "deny"
+        }
+      }
+    },
+    "planner": {
+      "description": "Агент-планировщик. Анализирует задачу, собирает контекст из documents_hub через contextDocs, задаёт уточняющие вопросы и декомпозирует на 3-5 атомарных подзадач. Создаёт структуру файлов в .opencode/features/.",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-6",
+      "temperature": 0.1,
+      "color": "#8b5cf6",
+      "prompt": "{file:.opencode/agents/planner.md}",
+      "tools": {
+        "write": true,
+        "edit": false,
+        "bash": false,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": false,
+        "todo": true,
+        "task": false
+      }
+    },
+    "tester": {
+      "description": "Агент-тестировщик. Пишет и запускает тесты по принципу TDD. Red-фаза (тесты ДОЛЖНЫ упасть), Green-фаза (тесты ДОЛЖНЫ пройти), Validation-фаза (регрессия + coverage 80%).",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-6",
+      "temperature": 0.1,
+      "color": "#ef4444",
+      "prompt": "{file:.opencode/agents/tester.md}",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": false,
+        "todo": true,
+        "task": false
+      }
+    },
+    "backend-dev": {
+      "description": "Писатель backend-кода. Реализует backend-логику на NestJS по конвенциям из documents_hub. TypeORM, JWT, class-validator. Следует TDD: получает готовые тесты и пишет код для их прохождения.",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-6",
+      "temperature": 0.2,
+      "color": "#22c55e",
+      "prompt": "{file:.opencode/agents/backend-dev.md}",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": true,
+        "todo": true,
+        "task": false
+      }
+    },
+    "frontend-dev": {
+      "description": "Писатель frontend-кода. Реализует frontend-логику на React 18+ по FSD-архитектуре и конвенциям из documents_hub. Redux Toolkit, MUI, React Router, Webpack. Следует TDD.",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-6",
+      "temperature": 0.2,
+      "color": "#3b82f6",
+      "prompt": "{file:.opencode/agents/frontend-dev.md}",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": true,
+        "todo": true,
+        "task": false
+      }
+    },
+    "code-reviewer": {
+      "description": "Агент-ревьювер. Проверяет качество кода, архитектурные конвенции, side-effects, документацию. Выносит вердикт: approve или request changes. Не модифицирует файлы.",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-5",
+      "temperature": 0.1,
+      "color": "#f59e0b",
+      "prompt": "{file:.opencode/agents/code-reviewer.md}",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "skill": true,
+        "webfetch": false,
+        "todo": false,
+        "task": false
+      }
+    }
+  },
+  "tools": {
+    "write": true,
+    "edit": true,
+    "bash": true,
+    "read": true,
+    "glob": true,
+    "grep": true,
+    "skill": true,
+    "webfetch": true,
+    "todo": true,
+    "task": true
+  },
+  "permission": {
+    "edit": "allow",
+    "bash": "allow",
+    "skill": {
+      "*": "allow"
+    }
+  },
+  "command": {
+    "test-backend": {
+      "template": "Run all backend unit tests with coverage report. Show failing tests and suggest fixes.\nWorking directory: backend/",
+      "description": "Run backend tests with coverage",
+      "agent": "architect"
+    },
+    "test-frontend": {
+      "template": "Run all frontend unit tests. Show failing tests and suggest fixes.\nWorking directory: frontend/",
+      "description": "Run frontend tests",
+      "agent": "architect"
+    },
+    "test-e2e": {
+      "template": "Run Playwright E2E tests for the frontend application.\nWorking directory: frontend/",
+      "description": "Run E2E tests with Playwright",
+      "agent": "architect"
+    },
+    "lint": {
+      "template": "Run linters for both backend and frontend. Fix any issues found.\nBackend: cd backend && npm run lint\nFrontend: cd frontend && npm run lint",
+      "description": "Lint entire project",
+      "agent": "architect"
+    },
+    "build": {
+      "template": "Build both backend and frontend applications and report any errors.\nBackend: cd backend && npm run build\nFrontend: cd frontend && npm run build",
+      "description": "Build entire project",
+      "agent": "architect"
+    },
+    "review": {
+      "template": "Review the recent changes in the current branch using @code-reviewer. Focus on code quality, security, NestJS/React best practices, TypeScript strict mode compliance, and test coverage. Use git diff to see changes.",
+      "description": "Review recent code changes",
+      "agent": "architect"
+    },
+    "db-reset": {
+      "template": "Reset the backend database: cd backend && npm run db:reset && npm run seed",
+      "description": "Reset and seed the database",
+      "agent": "architect"
+    },
+    "feature": {
+      "template": "Create a new feature decomposition using @planner. Feature: $ARGUMENTS",
+      "description": "Create feature decomposition via planner agent",
+      "agent": "architect"
+    }
+  },
+  "formatter": {
+    "prettier-backend": {
+      "command": ["npx", "prettier", "--write", "$FILE"],
+      "extensions": [".ts"],
+      "environment": {
+        "NODE_ENV": "development"
+      }
+    }
+  }
+}
