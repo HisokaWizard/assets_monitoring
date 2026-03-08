@@ -1,9 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AssetsController } from './assets.controller';
-import { AssetsService } from './assets.service';
-import { CryptoAsset, NFTAsset } from './asset.entity';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AssetsController } from "./assets.controller";
+import { AssetsService } from "./assets.service";
+import { CryptoAsset, NFTAsset } from "./asset.entity";
+import { UserRole } from "../auth/user-role.enum";
 
-describe('AssetsController', () => {
+describe("AssetsController", () => {
   let controller: AssetsController;
   let service: jest.Mocked<AssetsService>;
 
@@ -11,8 +12,8 @@ describe('AssetsController', () => {
     id: 1,
     amount: 1.5,
     middlePrice: 50000,
-    symbol: 'BTC',
-    fullName: 'Bitcoin',
+    symbol: "BTC",
+    fullName: "Bitcoin",
     currentPrice: 52000,
   } as unknown as CryptoAsset;
 
@@ -20,7 +21,7 @@ describe('AssetsController', () => {
     id: 2,
     amount: 1,
     middlePrice: 10,
-    collectionName: 'Bored Ape Yacht Club',
+    collectionName: "Bored Ape Yacht Club",
     floorPrice: 15,
     traitPrice: 20,
   } as unknown as NFTAsset;
@@ -51,8 +52,8 @@ describe('AssetsController', () => {
     jest.clearAllMocks();
   });
 
-  describe('findAll', () => {
-    it('should return 200 and array of assets', async () => {
+  describe("findAll", () => {
+    it("should return 200 and array of assets", async () => {
       service.findAll.mockResolvedValue([mockCryptoAsset, mockNFTAsset]);
 
       const result = await controller.findAll();
@@ -61,7 +62,7 @@ describe('AssetsController', () => {
       expect(result).toHaveLength(2);
     });
 
-    it('should work with empty array', async () => {
+    it("should work with empty array", async () => {
       service.findAll.mockResolvedValue([]);
 
       const result = await controller.findAll();
@@ -69,61 +70,65 @@ describe('AssetsController', () => {
       expect(result).toEqual([]);
     });
 
-    it('should call service.findAll()', async () => {
+    it("should call service.findAll()", async () => {
       await controller.findAll();
 
       expect(service.findAll).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('findOne', () => {
-    it('should return 200 and asset by id', async () => {
+  describe("findOne", () => {
+    it("should return 200 and asset by id", async () => {
       service.findOne.mockResolvedValue(mockCryptoAsset);
 
-      const result = await controller.findOne('1');
+      const result = await controller.findOne("1");
 
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockCryptoAsset);
     });
 
-    it('should throw NotFoundException if not found', async () => {
+    it("should throw NotFoundException if not found", async () => {
       service.findOne.mockResolvedValue(null);
 
-      await expect(controller.findOne('999')).rejects.toThrow('Asset with ID 999 not found');
+      await expect(controller.findOne("999")).rejects.toThrow(
+        "Asset with ID 999 not found",
+      );
     });
 
-    it('should convert id to number', async () => {
+    it("should convert id to number", async () => {
       service.findOne.mockResolvedValue(mockCryptoAsset);
 
-      await controller.findOne('42');
+      await controller.findOne("42");
 
       expect(service.findOne).toHaveBeenCalledWith(42);
     });
 
-    it('should work with both asset types', async () => {
+    it("should work with both asset types", async () => {
       service.findOne.mockResolvedValueOnce(mockCryptoAsset);
       service.findOne.mockResolvedValueOnce(mockNFTAsset);
 
-      const cryptoResult = await controller.findOne('1');
-      const nftResult = await controller.findOne('2');
+      const cryptoResult = await controller.findOne("1");
+      const nftResult = await controller.findOne("2");
 
-      expect((cryptoResult as CryptoAsset).symbol).toBe('BTC');
-      expect((nftResult as NFTAsset).collectionName).toBe('Bored Ape Yacht Club');
+      expect((cryptoResult as CryptoAsset).symbol).toBe("BTC");
+      expect((nftResult as NFTAsset).collectionName).toBe(
+        "Bored Ape Yacht Club",
+      );
     });
   });
 
-  describe('create', () => {
+  describe("create", () => {
     const mockRequest = {
-      user: { id: 1, email: 'test@example.com', role: 'user' },
+      user: { id: 1, email: "test@example.com", role: UserRole.USER },
     };
 
-    it('should return 201 and created crypto asset', async () => {
+    it("should return 201 and created crypto asset", async () => {
       const createDto = {
-        type: 'crypto' as const,
+        type: "crypto" as const,
         amount: 1.5,
         middlePrice: 50000,
-        symbol: 'BTC',
-        fullName: 'Bitcoin',
+        symbol: "BTC",
+        fullName: "Bitcoin",
         currentPrice: 52000,
       };
 
@@ -135,12 +140,12 @@ describe('AssetsController', () => {
       expect(result).toEqual(mockCryptoAsset);
     });
 
-    it('should return 201 and created nft asset', async () => {
+    it("should return 201 and created nft asset", async () => {
       const createDto = {
-        type: 'nft' as const,
+        type: "nft" as const,
         amount: 1,
         middlePrice: 10,
-        collectionName: 'BAYC',
+        collectionName: "BAYC",
         floorPrice: 15,
         traitPrice: 20,
       };
@@ -153,13 +158,13 @@ describe('AssetsController', () => {
       expect(result).toEqual(mockNFTAsset);
     });
 
-    it('should call service.create() with dto and userId', async () => {
+    it("should call service.create() with dto and userId", async () => {
       const createDto = {
-        type: 'crypto' as const,
+        type: "crypto" as const,
         amount: 2.0,
         middlePrice: 48000,
-        symbol: 'ETH',
-        fullName: 'Ethereum',
+        symbol: "ETH",
+        fullName: "Ethereum",
         currentPrice: 49000,
       };
 
@@ -170,67 +175,71 @@ describe('AssetsController', () => {
     });
   });
 
-  describe('update', () => {
-    it('should return 200 and updated asset', async () => {
+  describe("update", () => {
+    it("should return 200 and updated asset", async () => {
       const updateDto = { amount: 2.0 };
       const updatedAsset = { ...mockCryptoAsset, amount: 2.0 };
 
       service.update.mockResolvedValue(updatedAsset);
 
-      const result = await controller.update('1', updateDto as any);
+      const result = await controller.update("1", updateDto as any);
 
       expect(service.update).toHaveBeenCalledWith(1, updateDto);
       expect(result?.amount).toBe(2.0);
     });
 
-    it('should convert id to number', async () => {
+    it("should convert id to number", async () => {
       const updateDto = { amount: 3.0 };
       service.update.mockResolvedValue({ ...mockCryptoAsset, amount: 3.0 });
 
-      await controller.update('42', updateDto as any);
+      await controller.update("42", updateDto as any);
 
       expect(service.update).toHaveBeenCalledWith(42, updateDto);
     });
 
-    it('should throw NotFoundException if asset not found', async () => {
+    it("should throw NotFoundException if asset not found", async () => {
       const updateDto = { amount: 2.0 };
       service.update.mockResolvedValue(null);
 
-      await expect(controller.update('999', updateDto as any)).rejects.toThrow('Asset with ID 999 not found');
+      await expect(controller.update("999", updateDto as any)).rejects.toThrow(
+        "Asset with ID 999 not found",
+      );
     });
   });
 
-  describe('remove', () => {
-    it('should return 200/204', async () => {
+  describe("remove", () => {
+    it("should return 200/204", async () => {
       service.findOne.mockResolvedValue(mockCryptoAsset);
       service.remove.mockResolvedValue(undefined);
 
-      await controller.remove('1');
+      await controller.remove("1");
 
       expect(service.findOne).toHaveBeenCalledWith(1);
       expect(service.remove).toHaveBeenCalledWith(1);
     });
 
-    it('should convert id to number', async () => {
+    it("should convert id to number", async () => {
       service.findOne.mockResolvedValue(mockCryptoAsset);
-      await controller.remove('42');
+      await controller.remove("42");
 
       expect(service.remove).toHaveBeenCalledWith(42);
     });
 
-    it('should throw NotFoundException on non-existent asset', async () => {
+    it("should throw NotFoundException on non-existent asset", async () => {
       service.findOne.mockResolvedValue(null);
 
-      await expect(controller.remove('999')).rejects.toThrow('Asset with ID 999 not found');
+      await expect(controller.remove("999")).rejects.toThrow(
+        "Asset with ID 999 not found",
+      );
     });
   });
 
-  describe('refreshAll', () => {
+  describe("refreshAll", () => {
     const mockRequest = {
-      user: { id: 1, email: 'test@example.com', role: 'user' },
+      user: { id: 1, email: "test@example.com", role: UserRole.USER },
     };
 
-    it('should return array of refreshed assets', async () => {
+    it("should return array of refreshed assets", async () => {
       service.refreshAll.mockResolvedValue([mockCryptoAsset, mockNFTAsset]);
 
       const result = await controller.refreshAll(mockRequest as any);
@@ -239,7 +248,7 @@ describe('AssetsController', () => {
       expect(result).toHaveLength(2);
     });
 
-    it('should return empty array when no assets', async () => {
+    it("should return empty array when no assets", async () => {
       service.refreshAll.mockResolvedValue([]);
 
       const result = await controller.refreshAll(mockRequest as any);
@@ -248,9 +257,9 @@ describe('AssetsController', () => {
       expect(result).toEqual([]);
     });
 
-    it('should call service.refreshAll with userId from request', async () => {
+    it("should call service.refreshAll with userId from request", async () => {
       const customRequest = {
-        user: { id: 42, email: 'another@example.com', role: 'user' },
+        user: { id: 42, email: "another@example.com", role: UserRole.USER },
       };
 
       await controller.refreshAll(customRequest as any);

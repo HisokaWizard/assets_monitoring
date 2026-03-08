@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/claude-opus-4-6",
-  "small_model": "opencode/claude-opus-4-6",
+  "model": "opencode/minimax-m2.5-free",
+  "small_model": "opencode/minimax-m2.5-free",
   "default_agent": "architect",
   "autoupdate": true,
   "share": "manual",
@@ -36,7 +36,7 @@
     "architect": {
       "description": "Агент-архитектор (оркестратор). Центральный агент, принимающий задачу от пользователя и координирующий работу всех саб-агентов. Сам НЕ пишет код — только управляет процессом.",
       "mode": "primary",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.2,
       "color": "#6366f1",
       "prompt": "{file:.opencode/agents/architect.md}",
@@ -57,7 +57,7 @@
     "planner": {
       "description": "Агент-планировщик. Анализирует задачу, собирает контекст из documents_hub через contextDocs, задаёт уточняющие вопросы и декомпозирует на 3-5 атомарных подзадач. Создаёт структуру файлов в .opencode/features/.",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.1,
       "color": "#8b5cf6",
       "prompt": "{file:.opencode/agents/planner.md}",
@@ -81,7 +81,7 @@
     "tester": {
       "description": "Агент-тестировщик. Пишет и запускает тесты по принципу TDD. Red-фаза (тесты ДОЛЖНЫ упасть), Green-фаза (тесты ДОЛЖНЫ пройти), Validation-фаза (регрессия + coverage 80%).",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.1,
       "color": "#ef4444",
       "prompt": "{file:.opencode/agents/tester.md}",
@@ -102,7 +102,7 @@
     "backend-dev": {
       "description": "Писатель backend-кода. Реализует backend-логику на NestJS по конвенциям из documents_hub. TypeORM, JWT, class-validator. Следует TDD: получает готовые тесты и пишет код для их прохождения.",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.2,
       "color": "#22c55e",
       "prompt": "{file:.opencode/agents/backend-dev.md}",
@@ -123,7 +123,7 @@
     "frontend-dev": {
       "description": "Писатель frontend-кода. Реализует frontend-логику на React 18+ по FSD-архитектуре и конвенциям из documents_hub. Redux Toolkit, MUI, React Router, Webpack. Следует TDD.",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.2,
       "color": "#3b82f6",
       "prompt": "{file:.opencode/agents/frontend-dev.md}",
@@ -144,7 +144,7 @@
     "code-reviewer": {
       "description": "Агент-ревьювер. Проверяет качество кода, архитектурные конвенции, side-effects, документацию. Выносит вердикт: approve или request changes. Не модифицирует файлы.",
       "mode": "subagent",
-      "model": "opencode/claude-opus-4-6",
+      "model": "opencode/minimax-m2.5-free",
       "temperature": 0.1,
       "color": "#f59e0b",
       "prompt": "{file:.opencode/agents/code-reviewer.md}",

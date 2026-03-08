@@ -1,12 +1,13 @@
-import { JwtStrategy } from './jwt.strategy';
-import { User } from './user.entity';
+import { JwtStrategy } from "./jwt.strategy";
+import { User } from "./user.entity";
+import { UserRole } from "./user-role.enum";
 
-describe('JwtStrategy', () => {
+describe("JwtStrategy", () => {
   let strategy: JwtStrategy;
 
   beforeEach(() => {
     // Mock JWT_SECRET
-    process.env.JWT_SECRET = 'test_secret';
+    process.env.JWT_SECRET = "test_secret";
     strategy = new JwtStrategy();
   });
 
@@ -14,30 +15,30 @@ describe('JwtStrategy', () => {
     jest.clearAllMocks();
   });
 
-  describe('validate', () => {
-    it('should return user object from payload', async () => {
+  describe("validate", () => {
+    it("should return user object from payload", async () => {
       const payload = {
-        email: 'test@example.com',
+        email: "test@example.com",
         sub: 1,
-        role: 'user',
+        role: UserRole.USER,
       };
 
       const result = await strategy.validate(payload);
 
       expect(result).toEqual({
         id: 1,
-        email: 'test@example.com',
-        password: '',
-        role: 'user',
+        email: "test@example.com",
+        password: "",
+        role: UserRole.USER,
         lastUpdated: null,
       });
     });
 
-    it('should map sub to userId correctly', async () => {
+    it("should map sub to userId correctly", async () => {
       const payload = {
-        email: 'user@example.com',
+        email: "user@example.com",
         sub: 123,
-        role: 'admin',
+        role: UserRole.ADMIN,
       };
 
       const result = await strategy.validate(payload);
@@ -45,47 +46,47 @@ describe('JwtStrategy', () => {
       expect(result.id).toBe(123);
     });
 
-    it('should pass email from payload', async () => {
+    it("should pass email from payload", async () => {
       const payload = {
-        email: 'test@example.com',
+        email: "test@example.com",
         sub: 1,
-        role: 'user',
+        role: UserRole.USER,
       };
 
       const result = await strategy.validate(payload);
 
-      expect(result.email).toBe('test@example.com');
+      expect(result.email).toBe("test@example.com");
     });
 
-    it('should pass role from payload', async () => {
+    it("should pass role from payload", async () => {
       const payload = {
-        email: 'admin@example.com',
+        email: "admin@example.com",
         sub: 1,
-        role: 'admin',
+        role: UserRole.ADMIN,
       };
 
       const result = await strategy.validate(payload);
 
-      expect(result.role).toBe('admin');
+      expect(result.role).toBe(UserRole.ADMIN);
     });
 
-    it('should return empty password for security', async () => {
+    it("should return empty password for security", async () => {
       const payload = {
-        email: 'test@example.com',
+        email: "test@example.com",
         sub: 1,
-        role: 'user',
+        role: UserRole.USER,
       };
 
       const result = await strategy.validate(payload);
 
-      expect(result.password).toBe('');
+      expect(result.password).toBe("");
     });
 
-    it('should return null for lastUpdated', async () => {
+    it("should return null for lastUpdated", async () => {
       const payload = {
-        email: 'test@example.com',
+        email: "test@example.com",
         sub: 1,
-        role: 'user',
+        role: UserRole.USER,
       };
 
       const result = await strategy.validate(payload);
@@ -93,8 +94,12 @@ describe('JwtStrategy', () => {
       expect(result.lastUpdated).toBeNull();
     });
 
-    it('should handle different user roles', async () => {
-      const roles = ['user', 'admin', 'moderator'];
+    it("should handle different user roles", async () => {
+      const roles: (UserRole | string)[] = [
+        UserRole.USER,
+        UserRole.ADMIN,
+        "moderator",
+      ];
 
       for (const role of roles) {
         const payload = {

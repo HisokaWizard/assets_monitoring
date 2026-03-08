@@ -5,11 +5,12 @@
  * Используется для тестирования и демонстрации функциональности системы.
  */
 
-import { createConnection } from 'typeorm';
-import { User } from './auth/user.entity';
-import { Asset, CryptoAsset, NFTAsset } from './assets/asset.entity';
-import * as bcrypt from 'bcrypt';
-import { NotificationSettings } from './notifications/core/entities/notification-settings.entity';
+import { createConnection } from "typeorm";
+import { User } from "./auth/user.entity";
+import { UserRole } from "./auth/user-role.enum";
+import { Asset, CryptoAsset, NFTAsset } from "./assets/asset.entity";
+import * as bcrypt from "bcrypt";
+import { NotificationSettings } from "./notifications/core/entities/notification-settings.entity";
 
 /**
  * Функция для заполнения базы данных тестовыми данными.
@@ -17,8 +18,8 @@ import { NotificationSettings } from './notifications/core/entities/notification
 async function seed() {
   // Создание подключения к базе данных
   const connection = await createConnection({
-    type: 'sqlite',
-    database: 'database.sqlite',
+    type: "sqlite",
+    database: "database.sqlite",
     entities: [User, Asset, CryptoAsset, NFTAsset, NotificationSettings],
     synchronize: true,
   });
@@ -29,20 +30,20 @@ async function seed() {
   const notificationRepo = connection.getRepository(NotificationSettings);
 
   // Создание администратора
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPassword = await bcrypt.hash("admin123", 10);
   const admin = userRepo.create({
-    email: 'admin@example.com',
+    email: "admin@example.com",
     password: adminPassword,
-    role: 'admin',
+    role: UserRole.ADMIN,
   });
   await userRepo.save(admin);
 
   // Создание обычного пользователя
-  const userPassword = await bcrypt.hash('user123', 10);
+  const userPassword = await bcrypt.hash("user123", 10);
   const user = userRepo.create({
-    email: 'user@example.com',
+    email: "user@example.com",
     password: userPassword,
-    role: 'user',
+    role: UserRole.USER,
   });
   await userRepo.save(user);
 
@@ -62,8 +63,8 @@ async function seed() {
       yearChange: 0,
       totalChange: 0,
       userId: u.id,
-      symbol: 'BTC',
-      fullName: 'Bitcoin',
+      symbol: "BTC",
+      fullName: "Bitcoin",
       currentPrice: 45000,
     });
     await cryptoRepo.save(btc);
@@ -81,8 +82,8 @@ async function seed() {
       yearChange: 0,
       totalChange: 0,
       userId: u.id,
-      symbol: 'ETH',
-      fullName: 'Ethereum',
+      symbol: "ETH",
+      fullName: "Ethereum",
       currentPrice: 3000,
     });
     await cryptoRepo.save(eth);
@@ -100,7 +101,7 @@ async function seed() {
       yearChange: 0,
       totalChange: 0,
       userId: u.id,
-      collectionName: 'boredapeyachtclub',
+      collectionName: "boredapeyachtclub",
       floorPrice: 45000,
       traitPrice: 45000,
     });
@@ -119,7 +120,7 @@ async function seed() {
       yearChange: 0,
       totalChange: 0,
       userId: u.id,
-      collectionName: 'cryptopunks',
+      collectionName: "cryptopunks",
       floorPrice: 35000,
       traitPrice: 35000,
     });
@@ -128,7 +129,7 @@ async function seed() {
     // Создание настроек уведомлений
     const cryptoSettings = notificationRepo.create({
       userId: u.id,
-      assetType: 'crypto',
+      assetType: "crypto",
       enabled: true,
       thresholdPercent: 5,
       intervalHours: 4,
@@ -138,7 +139,7 @@ async function seed() {
 
     const nftSettings = notificationRepo.create({
       userId: u.id,
-      assetType: 'nft',
+      assetType: "nft",
       enabled: true,
       thresholdPercent: 10,
       intervalHours: 6,
@@ -148,7 +149,7 @@ async function seed() {
   }
 
   await connection.close();
-  console.log('Seeding completed');
+  console.log("Seeding completed");
 }
 
 // Запуск скрипта

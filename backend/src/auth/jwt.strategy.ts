@@ -9,10 +9,27 @@
  * PassportStrategy(Strategy) наследует базовую функциональность Passport.
  */
 
-import { Injectable } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { User } from './user.entity';
+import { Injectable } from "@nestjs/common";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import { User } from "./user.entity";
+import { UserRole } from "./user-role.enum";
+
+/**
+ * Интерфейс JWT payload.
+ *
+ * Описывает структуру данных, хранящихся в JWT токене.
+ * Поле role типизировано как UserRole для основных сценариев,
+ * но принимает string для обратной совместимости с внешними токенами.
+ */
+export interface JwtPayload {
+  /** Email пользователя. */
+  email: string;
+  /** Идентификатор пользователя (subject). */
+  sub: number;
+  /** Роль пользователя в системе. */
+  role: UserRole | string;
+}
 
 /**
  * JWT стратегия для аутентификации.
@@ -47,17 +64,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Вызывается Passport после успешной валидации токена.
    * Преобразует payload в объект User для использования в guards и контроллерах.
    *
-   * @param payload Декодированный payload JWT токена.
+   * @param payload Декодированный payload JWT токена (типизирован как JwtPayload).
    * @returns Promise с объектом пользователя (без пароля для безопасности).
    */
-  async validate(payload: any): Promise<User> {
+  async validate(payload: JwtPayload): Promise<Partial<User>> {
     return {
       id: payload.sub,
       email: payload.email,
-      password: '',
-      role: payload.role,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      password: "",
+      role: payload.role as UserRole,
       lastUpdated: null,
     };
   }

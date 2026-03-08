@@ -7,14 +7,19 @@
  * Сервисы инкапсулируют сложную логику и могут быть легко протестированы.
  */
 
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './user.entity';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { User } from "./user.entity";
+import { UserRole } from "./user-role.enum";
+import { RegisterDto } from "./dto/register.dto";
+import { LoginDto } from "./dto/login.dto";
+import * as bcrypt from "bcrypt";
+import { JwtService } from "@nestjs/jwt";
 
 /**
  * Сервис для операций аутентификации.
@@ -41,14 +46,14 @@ export class AuthService {
   /**
    * Получить текущего пользователя.
    */
-  async getMe(userId: number): Promise<Omit<User, 'password'>> {
+  async getMe(userId: number): Promise<Omit<User, "password">> {
     const user = await this.usersRepository.findOneBy({ id: userId });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user;
-    return result as Omit<User, 'password'>;
+    return result as Omit<User, "password">;
   }
 
   /**
@@ -60,22 +65,25 @@ export class AuthService {
    * @returns Promise с созданным пользователем (без пароля).
    * @throws Ошибка, если email уже занят.
    */
-  async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
+  async register(registerDto: RegisterDto): Promise<Omit<User, "password">> {
     // Check if user with this email already exists
-    const existingUser = await this.usersRepository.findOneBy({ email: registerDto.email });
+    const existingUser = await this.usersRepository.findOneBy({
+      email: registerDto.email,
+    });
     if (existingUser) {
-      throw new BadRequestException('User with this email already exists');
+      throw new BadRequestException("User with this email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = this.usersRepository.create({
-      ...registerDto,
+      email: registerDto.email,
       password: hashedPassword,
+      role: UserRole.USER,
     });
     const savedUser = await this.usersRepository.save(user);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser;
-    return result as Omit<User, 'password'>;
+    return result as Omit<User, "password">;
   }
 
   /**
@@ -88,21 +96,30 @@ export class AuthService {
    * @throws Error с сообщением 'Invalid credentials' при неверных данных.
    */
   async login(loginDto: LoginDto): Promise<{ access_token: string }> {
-    const user = await this.usersRepository.findOneBy({ email: loginDto.email });
+    const user = await this.usersRepository.findOneBy({
+      email: loginDto.email,
+    });
     if (user && (await bcrypt.compare(loginDto.password, user.password))) {
       const payload = { email: user.email, sub: user.id, role: user.role };
       return {
         access_token: this.jwtService.sign(payload),
       };
     }
-    throw new UnauthorizedException('Invalid credentials');
+    throw new UnauthorizedException("Invalid credentials");
   }
 
   /**
-   * Сбросить роль всех пользователей на 'user'.
+   * Сбросить роль всех пользователей на UserRole.USER.
+   *
+   * Обновляет роль всех пользователей в базе данных на значение по умолчанию.
+   *
+   * @returns Promise с количеством обновлённых записей.
    */
   async resetAllUserRoles(): Promise<{ updated: number }> {
-    const result = await this.usersRepository.update({}, { role: 'user' });
+    const result = await this.usersRepository.update(
+      {},
+      { role: UserRole.USER },
+    );
     return { updated: result.affected || 0 };
   }
 }

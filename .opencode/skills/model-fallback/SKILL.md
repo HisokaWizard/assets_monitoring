@@ -11,7 +11,7 @@
 
 - Получаешь ошибки API (timeout, 429, 500, 503)
 - Модель не отвечает или возвращает пустой ответ
-- Видишь сообщения о недоступности opencode/claude-opus-4-6
+- Видишь сообщения о недоступности anthropic/claude-opus-4-6
 - Пользователь сообщает о проблемах с моделью
 - Возникают ошибки аутентификации с API ключами
 
@@ -25,7 +25,7 @@
 
 ```
 - APIError: Model not found
-- APIError: Rate limit exceeded  
+- APIError: Rate limit exceeded
 - APIError: Service unavailable
 - Connection timeout
 - Authentication error
@@ -37,13 +37,14 @@
 
 ```typescript
 modelSwitcher({
-  targetModel: "minimax",
+  targetModel: 'minimax',
   fallback: true,
-  updateAgents: true
-})
+  updateAgents: true,
+});
 ```
 
 Это автоматически:
+
 - Обновит `model` в opencode.json на `opencode/minimax-m2.5-free`
 - Обновит `small_model` на `opencode/minimax-m2.5-free`
 - Обновит `model` для всех агентов в секции `agent.*`
@@ -67,10 +68,10 @@ modelSwitcher({ targetModel: "opus" })
 
 ## Доступные модели
 
-| Ключ     | Модель                     | Описание                   |
-| -------- | -------------------------- | -------------------------- |
-| `opus`   | opencode/claude-opus-4-6        | Основная модель (приоритет)|
-| `minimax`| opencode/minimax-m2.5-free | Fallback модель            |
+| Ключ      | Модель                     | Описание                    |
+| --------- | -------------------------- | --------------------------- |
+| `opus`    | anthropic/claude-opus-4-6  | Основная модель (приоритет) |
+| `minimax` | opencode/minimax-m2.5-free | Fallback модель             |
 
 ---
 
@@ -81,29 +82,29 @@ modelSwitcher({ targetModel: "opus" })
 ```typescript
 // При ошибке API вызови:
 modelSwitcher({
-  targetModel: "minimax",
-  fallback: true  // включает авто-fallback логику
-})
+  targetModel: 'minimax',
+  fallback: true, // включает авто-fallback логику
+});
 ```
 
 ### Ручное переключение
 
 ```typescript
 // Переключиться на opus вручную
-modelSwitcher({ targetModel: "opus" })
+modelSwitcher({ targetModel: 'opus' });
 
-// Переключиться на minimax вручную  
-modelSwitcher({ targetModel: "minimax" })
+// Переключиться на minimax вручную
+modelSwitcher({ targetModel: 'minimax' });
 ```
 
 ### Только глобальная модель
 
 ```typescript
 // Обновить только глобальные настройки, не трогая агентов
-modelSwitcher({ 
-  targetModel: "minimax", 
-  updateAgents: false 
-})
+modelSwitcher({
+  targetModel: 'minimax',
+  updateAgents: false,
+});
 ```
 
 ---

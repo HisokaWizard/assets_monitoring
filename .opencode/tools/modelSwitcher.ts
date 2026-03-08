@@ -9,14 +9,14 @@
  *   при недоступности основной модели — автоматическое переключение на fallback.
  *
  * Поддерживаемые модели:
- *   - opencode/claude-opus-4-6 (основная модель)
+ *   - anthropic/claude-opus-4-6 (основная модель)
  *   - opencode/minimax-m2.5-free (fallback модель)
  *
  * API (параметры вызова):
  *
  *   targetModel (обязательный): "opus" | "minimax"
  *     Какую модель установить:
- *     - "opus" → opencode/claude-opus-4-6
+ *     - "opus" → anthropic/claude-opus-4-6
  *     - "minimax" → opencode/minimax-m2.5-free
  *
  *   fallback (опциональный): boolean (default: false)
@@ -46,10 +46,10 @@
  * ============================================================================
  */
 
-import { tool, type ToolContext } from "@opencode-ai/plugin";
-import { z } from "zod";
-import path from "path";
-import fs from "fs/promises";
+import { tool, type ToolContext } from '@opencode-ai/plugin';
+import { z } from 'zod';
+import path from 'path';
+import fs from 'fs/promises';
 
 interface OpenCodeConfig {
   model: string;
@@ -58,33 +58,33 @@ interface OpenCodeConfig {
 }
 
 const MODEL_MAP = {
-  opus: "opencode/claude-opus-4-6",
-  minimax: "opencode/minimax-m2.5-free",
+  opus: 'anthropic/claude-opus-4-6',
+  minimax: 'opencode/minimax-m2.5-free',
 } as const;
 
 export default tool({
   description:
-    "Переключение модели AI в opencode.json. При недоступности одной модели " +
-    "можно переключиться на другую (claude-opus-4-6 ↔ minimax).",
+    'Переключение модели AI в opencode.json. При недоступности одной модели ' +
+    'можно переключиться на другую (claude-opus-4-6 ↔ minimax).',
 
   args: {
     targetModel: z
-      .enum(["opus", "minimax"])
+      .enum(['opus', 'minimax'])
       .describe(
-        'Какую модель установить: "opus" (opencode/claude-opus-4-6) или "minimax" (opencode/minimax-m2.5-free)',
+        'Какую модель установить: "opus" (anthropic/claude-opus-4-6) или "minimax" (opencode/minimax-m2.5-free)',
       ),
 
     fallback: z
       .boolean()
       .optional()
       .default(false)
-      .describe("Автоматически переключиться на minimax при ошибке"),
+      .describe('Автоматически переключиться на minimax при ошибке'),
 
     updateAgents: z
       .boolean()
       .optional()
       .default(true)
-      .describe("Обновить модель для всех агентов (agent.*.model)"),
+      .describe('Обновить модель для всех агентов (agent.*.model)'),
   },
 
   async execute(args, context: ToolContext): Promise<string> {
@@ -93,11 +93,11 @@ export default tool({
 
     // Определяем путь к opencode.json
     const projectRoot = context.directory || process.cwd();
-    const configPath = path.resolve(projectRoot, "opencode.json");
+    const configPath = path.resolve(projectRoot, 'opencode.json');
 
     try {
       // Читаем текущую конфигурацию
-      const configContent = await fs.readFile(configPath, "utf-8");
+      const configContent = await fs.readFile(configPath, 'utf-8');
       const config: OpenCodeConfig = JSON.parse(configContent);
 
       let changes: string[] = [];
@@ -127,43 +127,36 @@ export default tool({
       }
 
       // Записываем обновлённую конфигурацию
-      await fs.writeFile(
-        configPath,
-        JSON.stringify(config, null, 2) + "\n",
-        "utf-8",
-      );
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
-      return `Модель переключена на ${targetModelString}.\nВыполненные изменения:\n${changes.map((c) => `  - ${c}`).join("\n")}\n\n⚠️ Перезапустите opencode для применения изменений.`;
+      return `Модель переключена на ${targetModelString}.\nВыполненные изменения:\n${changes.map((c) => `  - ${c}`).join('\n')}\n\n⚠️ Перезапустите opencode для применения изменений.`;
     } catch (error) {
-      if (fallback && targetModel !== "minimax") {
+      if (fallback && targetModel !== 'minimax') {
         // Автоматический fallback на minimax
         try {
-          const fallbackResult = await executeWithModel("minimax", context);
-          return `Ошибка переключения на ${targetModelString}: ${error instanceof Error ? error.message : "Неизвестная ошибка"}\n\nВыполнен автоматический fallback:\n${fallbackResult}`;
+          const fallbackResult = await executeWithModel('minimax', context);
+          return `Ошибка переключения на ${targetModelString}: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n\nВыполнен автоматический fallback:\n${fallbackResult}`;
         } catch (fallbackError) {
           throw new Error(
-            `Ошибка переключения: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
+            `Ошибка переключения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
           );
         }
       }
 
       throw new Error(
-        `Не удалось переключить модель: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
+        `Не удалось переключить модель: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
       );
     }
   },
 });
 
 // Вспомогательная функция для fallback
-async function executeWithModel(
-  model: "opus" | "minimax",
-  context: ToolContext,
-): Promise<string> {
+async function executeWithModel(model: 'opus' | 'minimax', context: ToolContext): Promise<string> {
   const modelString = MODEL_MAP[model];
   const projectRoot = context.directory || process.cwd();
-  const configPath = path.resolve(projectRoot, "opencode.json");
+  const configPath = path.resolve(projectRoot, 'opencode.json');
 
-  const configContent = await fs.readFile(configPath, "utf-8");
+  const configContent = await fs.readFile(configPath, 'utf-8');
   const config: OpenCodeConfig = JSON.parse(configContent);
 
   config.model = modelString;
@@ -175,11 +168,7 @@ async function executeWithModel(
     }
   }
 
-  await fs.writeFile(
-    configPath,
-    JSON.stringify(config, null, 2) + "\n",
-    "utf-8",
-  );
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 
   return `model → ${modelString}\nВсе агенты обновлены → ${modelString}`;
 }

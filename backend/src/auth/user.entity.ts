@@ -7,7 +7,14 @@
  * Используется для регистрации, входа в систему и управления доступом.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from "typeorm";
+import { UserRole } from "./user-role.enum";
 
 /**
  * Сущность пользователя.
@@ -47,11 +54,12 @@ export class User {
   /**
    * Роль пользователя в системе.
    *
-   * Определяет уровень доступа (например, "user", "admin").
+   * Определяет уровень доступа: {@link UserRole.USER} или {@link UserRole.ADMIN}.
    * Используется для авторизации и контроля доступа к ресурсам.
+   * Хранится как текстовое поле для совместимости с SQLite.
    */
-  @Column({ default: 'user' })
-  role: string; // e.g., user, admin
+  @Column({ type: "text", default: UserRole.USER })
+  role: UserRole;
 
   /**
    * Дата создания пользователя.
@@ -68,6 +76,6 @@ export class User {
   /**
    * Время последнего обновления активов.
    */
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: "datetime", nullable: true })
   lastUpdated: Date;
 }
