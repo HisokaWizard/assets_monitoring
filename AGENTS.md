@@ -109,9 +109,11 @@ opencode.json                    # Декларация всех агентов 
 │   └── code-reviewer.md
 ├── skills/                      # Скиллы агентов
 │   ├── debugger/SKILL.md
+│   ├── model-fallback/SKILL.md
 │   └── tdd-workflow/SKILL.md
 ├── tools/
-│   └── contextDocs.ts           # Кастомный тул для documents_hub
+│   ├── contextDocs.ts           # Кастомный тул для documents_hub
+│   └── modelSwitcher.ts         # Тул для переключения модели AI
 └── features/                    # Хранилище задач
     ├── backend/feat_1..feat_N/
     └── frontend/feat_1..feat_N/
