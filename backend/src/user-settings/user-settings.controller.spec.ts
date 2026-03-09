@@ -5,10 +5,14 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { UserSettingsController } from "./user-settings.controller";
+import {
+  UserSettingsController,
+  AuthenticatedRequest,
+} from "./user-settings.controller";
 import { UserSettingsService } from "./user-settings.service";
 import { UserSettings } from "./core/entities/user-settings.entity";
 import { UserRole } from "../auth/user-role.enum";
+import { User } from "../auth/user.entity";
 
 describe("UserSettingsController", () => {
   let controller: UserSettingsController;
@@ -20,8 +24,11 @@ describe("UserSettingsController", () => {
       email: "test@example.com",
       password: "hashed",
       role: UserRole.USER,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastUpdated: new Date(),
     },
-  };
+  } as AuthenticatedRequest;
 
   const mockService = {
     getUserSettings: jest.fn(),

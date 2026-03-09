@@ -5,20 +5,20 @@
  * и отправки уведомлений пользователям на основе их настроек.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationSettings } from '../core/entities/notification-settings.entity';
-import { NotificationLog } from '../core/entities/notification-log.entity';
-import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
-import { EmailService } from '../email/email.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { NotificationSettings } from "../core/entities/notification-settings.entity";
+import { NotificationLog } from "../core/entities/notification-log.entity";
+import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
+import { EmailService } from "../email/email.service";
 
 /**
  * Данные об отдельном срабатывании алерта по активу.
  */
 interface AlertTriggered {
   /** Тип актива: crypto или nft */
-  assetType: 'crypto' | 'nft';
+  assetType: "crypto" | "nft";
   /** Основное название: symbol для crypto, collectionName для nft */
   name: string;
   /** Полное название криптовалюты (только для crypto) */
@@ -61,20 +61,23 @@ export class AlertsService {
    * @param userId Опциональный ID пользователя для фильтрации
    * @param assetIds Опциональный массив ID активов для проверки
    */
-  async checkAlertsAfterUpdate(userId?: number, assetIds?: number[]): Promise<void> {
+  async checkAlertsAfterUpdate(
+    userId?: number,
+    assetIds?: number[],
+  ): Promise<void> {
     this.logger.log(
-      `Checking alerts after update for user ${userId || 'all'}, assets ${
-        assetIds?.join(', ') || 'all'
+      `Checking alerts after update for user ${userId || "all"}, assets ${
+        assetIds?.join(", ") || "all"
       }`,
     );
 
     let query = this.settingsRepository
-      .createQueryBuilder('setting')
-      .leftJoinAndSelect('setting.user', 'user')
-      .where('setting.enabled = :enabled', { enabled: true });
+      .createQueryBuilder("setting")
+      .leftJoinAndSelect("setting.user", "user")
+      .where("setting.enabled = :enabled", { enabled: true });
 
     if (userId) {
-      query = query.andWhere('setting.userId = :userId', { userId });
+      query = query.andWhere("setting.userId = :userId", { userId });
     }
 
     const settings = await query.getMany();
@@ -83,7 +86,11 @@ export class AlertsService {
       try {
         await this.checkUserAlertsAfterUpdate(setting, assetIds);
       } catch (error) {
-        this.logger.error(`Error checking alerts for user ${setting.userId}: ${error.message}`);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(
+          `Error checking alerts for user ${setting.userId}: ${errorMessage}`,
+        );
       }
     }
   }
@@ -102,26 +109,31 @@ export class AlertsService {
     const intervalMs = setting.intervalHours * 60 * 60 * 1000;
 
     // Проверяем, прошел ли интервал с последнего уведомления
-    if (setting.lastNotified && now.getTime() - setting.lastNotified.getTime() < intervalMs) {
+    if (
+      setting.lastNotified &&
+      now.getTime() - setting.lastNotified.getTime() < intervalMs
+    ) {
       return;
     }
 
     // Получаем активы пользователя
     let assetsQuery = this.assetsRepository
-      .createQueryBuilder('asset')
-      .where('asset.userId = :userId', { userId: setting.userId });
+      .createQueryBuilder("asset")
+      .where("asset.userId = :userId", { userId: setting.userId });
 
     if (assetIds && assetIds.length > 0) {
-      assetsQuery = assetsQuery.andWhere('asset.id IN (:...assetIds)', { assetIds });
+      assetsQuery = assetsQuery.andWhere("asset.id IN (:...assetIds)", {
+        assetIds,
+      });
     }
 
     const allAssets = await assetsQuery.getMany();
 
     // Фильтруем по типу
     const assets = allAssets.filter((asset) => {
-      if (setting.assetType === 'crypto') {
+      if (setting.assetType === "crypto") {
         return asset instanceof CryptoAsset;
-      } else if (setting.assetType === 'nft') {
+      } else if (setting.assetType === "nft") {
         return asset instanceof NFTAsset;
       }
       return false;
@@ -134,22 +146,22 @@ export class AlertsService {
       if (Math.abs(change) >= setting.thresholdPercent) {
         if (asset instanceof CryptoAsset) {
           alertsTriggered.push({
-            assetType: 'crypto',
+            assetType: "crypto",
             name: asset.symbol,
             fullName: asset.fullName,
             previousPrice: asset.previousPrice,
             currentPrice: asset.currentPrice,
-            change: (change >= 0 ? '+' : '') + change.toFixed(2),
+            change: (change >= 0 ? "+" : "") + change.toFixed(2),
           });
         } else {
           const nftAsset = asset as NFTAsset;
           alertsTriggered.push({
-            assetType: 'nft',
+            assetType: "nft",
             name: nftAsset.collectionName,
             nativeToken: nftAsset.nativeToken,
             previousPrice: nftAsset.previousPrice,
             currentPrice: nftAsset.floorPrice,
-            change: (change >= 0 ? '+' : '') + change.toFixed(2),
+            change: (change >= 0 ? "+" : "") + change.toFixed(2),
           });
         }
       }
@@ -172,7 +184,9 @@ export class AlertsService {
     if (!asset.previousPrice || asset.previousPrice === 0) return 0;
 
     const currentPrice =
-      asset instanceof CryptoAsset ? asset.currentPrice : (asset as NFTAsset).floorPrice;
+      asset instanceof CryptoAsset
+        ? asset.currentPrice
+        : (asset as NFTAsset).floorPrice;
     return ((currentPrice - asset.previousPrice) / asset.previousPrice) * 100;
   }
 
@@ -190,16 +204,21 @@ export class AlertsService {
     const plainText = this.buildAlertPlainText(alertsTriggered);
     const html = this.buildAlertHtml(alertsTriggered);
 
-    const success = await this.emailService.sendEmail(setting.user.email, subject, plainText, html);
+    const success = await this.emailService.sendEmail(
+      setting.user.email,
+      subject,
+      plainText,
+      html,
+    );
 
     // Логируем отправку
     await this.logRepository.save({
       userId: setting.userId,
-      type: 'alert',
+      type: "alert",
       subject,
       message: plainText,
       sentAt: new Date(),
-      status: success ? 'sent' : 'failed',
+      status: success ? "sent" : "failed",
     });
 
     if (success) {
@@ -216,18 +235,19 @@ export class AlertsService {
    * @returns Текст сообщения
    */
   private buildAlertPlainText(alertsTriggered: AlertTriggered[]): string {
-    let message = 'Sharp price changes detected:\n\n';
+    let message = "Sharp price changes detected:\n\n";
 
     for (const alert of alertsTriggered) {
-      const label = alert.assetType === 'crypto'
-        ? `${alert.name}${alert.fullName ? ` (${alert.fullName})` : ''}`
-        : `${alert.name}${alert.nativeToken ? ` [${alert.nativeToken}]` : ''}`;
+      const label =
+        alert.assetType === "crypto"
+          ? `${alert.name}${alert.fullName ? ` (${alert.fullName})` : ""}`
+          : `${alert.name}${alert.nativeToken ? ` [${alert.nativeToken}]` : ""}`;
       message += `${label}: ${alert.change}% change`;
       message += `, Price before: ${alert.previousPrice}`;
       message += `, Current price: ${alert.currentPrice}\n`;
     }
 
-    message += '\nPlease check your portfolio for more details.';
+    message += "\nPlease check your portfolio for more details.";
     return message;
   }
 
@@ -242,25 +262,30 @@ export class AlertsService {
    * @returns HTML-строка письма
    */
   private buildAlertHtml(alertsTriggered: AlertTriggered[]): string {
-    const rows = alertsTriggered.map((alert) => {
-      const isPositive = !alert.change.startsWith('-');
-      const changeColor = isPositive ? 'green' : 'red';
+    const rows = alertsTriggered
+      .map((alert) => {
+        const isPositive = !alert.change.startsWith("-");
+        const changeColor = isPositive ? "green" : "red";
 
-      const typeBadge = alert.assetType.toUpperCase();
+        const typeBadge = alert.assetType.toUpperCase();
 
-      // Название: для crypto — symbol + fullName, для nft — collectionName + nativeToken
-      const nameCell = alert.assetType === 'crypto'
-        ? `<strong>${alert.name}</strong>${alert.fullName ? `<br><small style="color:#666;">${alert.fullName}</small>` : ''}`
-        : `<strong>${alert.name}</strong>${alert.nativeToken ? `<br><small style="color:#666;">${alert.nativeToken}</small>` : ''}`;
+        // Название: для crypto — symbol + fullName, для nft — collectionName + nativeToken
+        const nameCell =
+          alert.assetType === "crypto"
+            ? `<strong>${alert.name}</strong>${alert.fullName ? `<br><small style="color:#666;">${alert.fullName}</small>` : ""}`
+            : `<strong>${alert.name}</strong>${alert.nativeToken ? `<br><small style="color:#666;">${alert.nativeToken}</small>` : ""}`;
 
-      // Цена: для crypto — USD ($), для nft — нативный токен
-      const pricePrefix = alert.assetType === 'crypto' ? '$' : '';
-      const priceSuffix = alert.assetType === 'nft' && alert.nativeToken ? ` ${alert.nativeToken}` : '';
+        // Цена: для crypto — USD ($), для nft — нативный токен
+        const pricePrefix = alert.assetType === "crypto" ? "$" : "";
+        const priceSuffix =
+          alert.assetType === "nft" && alert.nativeToken
+            ? ` ${alert.nativeToken}`
+            : "";
 
-      const formatPrice = (price: number) =>
-        `${pricePrefix}${price.toLocaleString('en-US', { maximumFractionDigits: 4 })}${priceSuffix}`;
+        const formatPrice = (price: number) =>
+          `${pricePrefix}${price.toLocaleString("en-US", { maximumFractionDigits: 4 })}${priceSuffix}`;
 
-      return `
+        return `
         <tr style="border-bottom: 1px solid #e0e0e0;">
           <td style="padding: 10px 14px; font-size: 12px; font-weight: bold; color: #555; white-space: nowrap;">${typeBadge}</td>
           <td style="padding: 10px 14px; font-size: 14px;">${nameCell}</td>
@@ -268,7 +293,8 @@ export class AlertsService {
           <td style="padding: 10px 14px; font-size: 14px; white-space: nowrap;">${formatPrice(alert.currentPrice)}</td>
           <td style="padding: 10px 14px; font-size: 15px; font-weight: bold; color: ${changeColor}; white-space: nowrap;">${alert.change}%</td>
         </tr>`;
-    }).join('');
+      })
+      .join("");
 
     return `<!DOCTYPE html>
 <html lang="en">

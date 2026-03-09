@@ -5,7 +5,15 @@
  * Включает валидацию полей.
  */
 
-import { IsString, IsBoolean, IsNumber, Min, Max, IsIn, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsNumber,
+  Min,
+  Max,
+  IsIn,
+  IsOptional,
+} from "class-validator";
 
 /**
  * DTO для создания настроек уведомлений.
@@ -17,8 +25,8 @@ export class CreateNotificationSettingsDto {
    * Тип актива (crypto, nft).
    */
   @IsString()
-  @IsIn(['crypto', 'nft'])
-  assetType: string;
+  @IsIn(["crypto", "nft"])
+  assetType!: string;
 
   /**
    * Включены ли уведомления.

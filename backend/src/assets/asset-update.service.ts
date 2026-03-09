@@ -6,16 +6,20 @@
  * Сервис использует HttpService для API вызовов и @nestjs/schedule для джоб.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { firstValueFrom } from 'rxjs';
-import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
-import { HistoricalPrice } from './historical-price.entity';
-import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
-import { UserSettingsService } from '../user-settings/user-settings.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { HttpService } from "@nestjs/axios";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { firstValueFrom } from "rxjs";
+import { Asset, CryptoAsset, NFTAsset } from "./asset.entity";
+import { HistoricalPrice } from "./historical-price.entity";
+import { User } from "../auth/user.entity";
+import { NotificationSettings } from "../notifications/core/entities/notification-settings.entity";
+import { UserSettingsService } from "../user-settings/user-settings.service";
+import {
+  CoinMarketCapResponse,
+  OpenSeaResponse,
+} from "./interfaces/api-responses.interface";
 
 /**
  * Сервис для обновления активов.
@@ -50,7 +54,7 @@ export class AssetUpdateService {
     // Получить все настройки уведомлений с пользователями
     const settings = await this.notificationSettingsRepository.find({
       where: { enabled: true },
-      relations: ['user'],
+      relations: ["user"],
     });
 
     // Группировать по пользователям
@@ -66,14 +70,18 @@ export class AssetUpdateService {
       const user = userSettings[0].user;
 
       // Получить API ключи пользователя (дешифрованные)
-      const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
+      const userSettingsData = await this.userSettingsService.getUserSettings({
+        id: userId,
+      } as User);
 
       const coinmarketcapApiKey = userSettingsData?.coinmarketcapApiKey;
       const openseaApiKey = userSettingsData?.openseaApiKey;
 
       // Пропустить если нет API ключей
       if (!coinmarketcapApiKey && !openseaApiKey) {
-        this.logger.warn(`У пользователя ${userId} нет сохраненных API ключей, пропускаем обновление`);
+        this.logger.warn(
+          `У пользователя ${userId} нет сохраненных API ключей, пропускаем обновление`,
+        );
         continue;
       }
 
@@ -82,12 +90,15 @@ export class AssetUpdateService {
       // Примечание: intervalHours — это кулдаун между алертами (используется в alerts.service.ts),
       // а updateIntervalHours — интервал опроса внешних API для обновления цен.
       const updateIntervalHours =
-        userSettings.length > 0 ? Math.max(...userSettings.map((s) => s.updateIntervalHours)) : 4;
+        userSettings.length > 0
+          ? Math.max(...userSettings.map((s) => s.updateIntervalHours))
+          : 4;
 
       // Проверить, прошло ли время с последнего обновления
       const shouldUpdate =
         !user.lastUpdated ||
-        now.getTime() - user.lastUpdated.getTime() >= updateIntervalHours * 60 * 60 * 1000;
+        now.getTime() - user.lastUpdated.getTime() >=
+          updateIntervalHours * 60 * 60 * 1000;
 
       if (shouldUpdate) {
         // Получить активы пользователя
@@ -95,14 +106,25 @@ export class AssetUpdateService {
 
         for (const asset of assets) {
           try {
-            if (asset.type === 'crypto') {
-              await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
-            } else if (asset.type === 'nft') {
-              await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined, coinmarketcapApiKey || undefined);
+            if (asset.type === "crypto") {
+              await this.updateCryptoAsset(
+                asset as CryptoAsset,
+                coinmarketcapApiKey || undefined,
+              );
+            } else if (asset.type === "nft") {
+              await this.updateNFTAsset(
+                asset as NFTAsset,
+                openseaApiKey || undefined,
+                coinmarketcapApiKey || undefined,
+              );
             }
             updatedAssetIds.push(asset.id);
-          } catch (error) {
-            this.logger.error(`Ошибка обновления актива ${asset.id}: ${error.message}`);
+          } catch (error: unknown) {
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+            this.logger.error(
+              `Ошибка обновления актива ${asset.id}: ${errorMessage}`,
+            );
           }
         }
 
@@ -117,7 +139,9 @@ export class AssetUpdateService {
 
   async updateAssetsForUser(userId: number): Promise<number[]> {
     const updatedAssetIds: number[] = [];
-    const userSettingsData = await this.userSettingsService.getUserSettings({ id: userId } as User);
+    const userSettingsData = await this.userSettingsService.getUserSettings({
+      id: userId,
+    } as User);
 
     const coinmarketcapApiKey = userSettingsData?.coinmarketcapApiKey;
     const openseaApiKey = userSettingsData?.openseaApiKey;
@@ -131,14 +155,25 @@ export class AssetUpdateService {
 
     for (const asset of assets) {
       try {
-        if (asset.type === 'crypto') {
-          await this.updateCryptoAsset(asset as CryptoAsset, coinmarketcapApiKey || undefined);
-        } else if (asset.type === 'nft') {
-          await this.updateNFTAsset(asset as NFTAsset, openseaApiKey || undefined, coinmarketcapApiKey || undefined);
+        if (asset.type === "crypto") {
+          await this.updateCryptoAsset(
+            asset as CryptoAsset,
+            coinmarketcapApiKey || undefined,
+          );
+        } else if (asset.type === "nft") {
+          await this.updateNFTAsset(
+            asset as NFTAsset,
+            openseaApiKey || undefined,
+            coinmarketcapApiKey || undefined,
+          );
         }
         updatedAssetIds.push(asset.id);
-      } catch (error) {
-        this.logger.error(`Ошибка обновления актива ${asset.id}: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        this.logger.error(
+          `Ошибка обновления актива ${asset.id}: ${errorMessage}`,
+        );
       }
     }
 
@@ -148,7 +183,10 @@ export class AssetUpdateService {
   /**
    * Обновить криптоактив.
    */
-  private async updateCryptoAsset(asset: CryptoAsset, apiKey?: string): Promise<void> {
+  private async updateCryptoAsset(
+    asset: CryptoAsset,
+    apiKey?: string,
+  ): Promise<void> {
     const newPrice = await this.fetchFromCoinMarketCap(asset.symbol, apiKey);
     if (newPrice) {
       // Запомнить предыдущую цену перед обновлением
@@ -157,7 +195,7 @@ export class AssetUpdateService {
       // Пересчитать multiple
       asset.multiple = asset.middlePrice ? newPrice / asset.middlePrice : 0;
       // Сохранить историческую цену (USD)
-      await this.saveHistoricalPrice(asset.id, newPrice, 'CoinMarketCap');
+      await this.saveHistoricalPrice(asset.id, newPrice, "CoinMarketCap");
       // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
       await this.assetsRepository.save(asset);
@@ -170,12 +208,17 @@ export class AssetUpdateService {
    * Получает floorPrice (в нативном токене), floorPriceSymbol и рассчитывает
    * floorPriceUsd через курс токена из CoinMarketCap.
    */
-  async updateNFTAsset(asset: NFTAsset, openseaApiKey?: string, coinmarketcapApiKey?: string): Promise<void> {
-    const { floorPrice, floorPriceUsd, floorPriceSymbol } = await this.fetchFromOpenSea(
-      asset.collectionName,
-      openseaApiKey,
-      coinmarketcapApiKey,
-    );
+  async updateNFTAsset(
+    asset: NFTAsset,
+    openseaApiKey?: string,
+    coinmarketcapApiKey?: string,
+  ): Promise<void> {
+    const { floorPrice, floorPriceUsd, floorPriceSymbol } =
+      await this.fetchFromOpenSea(
+        asset.collectionName,
+        openseaApiKey,
+        coinmarketcapApiKey,
+      );
     if (floorPrice !== null) {
       // Запомнить предыдущую цену перед обновлением
       asset.previousPrice = asset.floorPrice || 0;
@@ -192,11 +235,13 @@ export class AssetUpdateService {
       // Пересчитать middlePriceUsd по актуальному курсу токена
       if (floorPriceUsd !== null && floorPrice > 0) {
         const tokenUsdRate = floorPriceUsd / floorPrice;
-        asset.middlePriceUsd = asset.middlePrice ? asset.middlePrice * tokenUsdRate : 0;
+        asset.middlePriceUsd = asset.middlePrice
+          ? asset.middlePrice * tokenUsdRate
+          : 0;
       }
       // Сохранить историческую цену (USD для единообразия)
       const priceForHistory = floorPriceUsd ?? floorPrice;
-      await this.saveHistoricalPrice(asset.id, priceForHistory, 'OpenSea');
+      await this.saveHistoricalPrice(asset.id, priceForHistory, "OpenSea");
       // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
       await this.assetsRepository.save(asset);
@@ -206,25 +251,36 @@ export class AssetUpdateService {
   /**
    * Получить данные из CoinMarketCap API.
    */
-  private async fetchFromCoinMarketCap(symbol: string, apiKey?: string): Promise<number | null> {
+  private async fetchFromCoinMarketCap(
+    symbol: string,
+    apiKey?: string,
+  ): Promise<number | null> {
     try {
       const key = apiKey;
       if (!key) {
-        this.logger.warn('CoinMarketCap API key не установлен для пользователя');
+        this.logger.warn(
+          "CoinMarketCap API key не установлен для пользователя",
+        );
         return null;
       }
 
       const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}&convert=USD`;
       const response = await firstValueFrom(
         this.httpService.get(url, {
-          headers: { 'X-CMC_PRO_API_KEY': key },
+          headers: { "X-CMC_PRO_API_KEY": key },
         }),
       );
 
-      const data = (response.data as any).data[symbol.toUpperCase()];
+      const data = (response.data as CoinMarketCapResponse).data[
+        symbol.toUpperCase()
+      ];
       return data ? data.quote.USD.price : null;
-    } catch (error) {
-      this.logger.error(`Ошибка получения данных из CoinMarketCap для ${symbol}: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(
+        `Ошибка получения данных из CoinMarketCap для ${symbol}: ${errorMessage}`,
+      );
       return null;
     }
   }
@@ -242,39 +298,52 @@ export class AssetUpdateService {
     collectionName: string,
     openseaApiKey?: string,
     coinmarketcapApiKey?: string,
-  ): Promise<{ floorPrice: number | null; floorPriceUsd: number | null; floorPriceSymbol: string | null }> {
+  ): Promise<{
+    floorPrice: number | null;
+    floorPriceUsd: number | null;
+    floorPriceSymbol: string | null;
+  }> {
     try {
       const key = openseaApiKey;
       if (!key) {
-        this.logger.warn('OpenSea API key не установлен для пользователя');
-        return { floorPrice: null, floorPriceUsd: null, floorPriceSymbol: null };
+        this.logger.warn("OpenSea API key не установлен для пользователя");
+        return {
+          floorPrice: null,
+          floorPriceUsd: null,
+          floorPriceSymbol: null,
+        };
       }
 
       const url = `https://api.opensea.io/api/v2/collections/${collectionName}/stats`;
       const response = await firstValueFrom(
         this.httpService.get(url, {
-          headers: { 'X-API-KEY': key },
+          headers: { "X-API-KEY": key },
         }),
       );
 
       // OpenSea API v2: данные находятся в поле "total", а не "stats"
-      const total = (response as any).data?.total;
+      const total = (response.data as OpenSeaResponse)?.total;
       const floorPrice: number | null = total?.floor_price ?? null;
       const floorPriceSymbol: string | null = total?.floor_price_symbol ?? null;
 
       // Рассчитать floorPriceUsd через CoinMarketCap (ключ пользователя)
       let floorPriceUsd: number | null = null;
       if (floorPrice !== null && floorPriceSymbol) {
-        const tokenPrice = await this.fetchFromCoinMarketCap(floorPriceSymbol, coinmarketcapApiKey);
+        const tokenPrice = await this.fetchFromCoinMarketCap(
+          floorPriceSymbol,
+          coinmarketcapApiKey,
+        );
         if (tokenPrice !== null) {
           floorPriceUsd = floorPrice * tokenPrice;
         }
       }
 
       return { floorPrice, floorPriceUsd, floorPriceSymbol };
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       this.logger.error(
-        `Ошибка получения данных из OpenSea для ${collectionName}: ${error.message}`,
+        `Ошибка получения данных из OpenSea для ${collectionName}: ${errorMessage}`,
       );
       return { floorPrice: null, floorPriceUsd: null, floorPriceSymbol: null };
     }
@@ -305,7 +374,7 @@ export class AssetUpdateService {
     // Получить историю для актива (последние 400 записей — достаточно для года)
     const history = await this.historicalPriceRepository.find({
       where: { assetId: asset.id },
-      order: { timestamp: 'DESC' },
+      order: { timestamp: "DESC" },
       take: 400,
     });
 
@@ -317,38 +386,69 @@ export class AssetUpdateService {
       changeField: keyof typeof asset;
       changeUsdField: keyof typeof asset;
     }> = [
-      { minAge: 24 * 60 * 60 * 1000,           changeField: 'dailyChange',   changeUsdField: 'dailyChangeUsd' },
-      { minAge: 7 * 24 * 60 * 60 * 1000,        changeField: 'weeklyChange',  changeUsdField: 'weeklyChangeUsd' },
-      { minAge: 30 * 24 * 60 * 60 * 1000,       changeField: 'monthlyChange', changeUsdField: 'monthlyChangeUsd' },
-      { minAge: 90 * 24 * 60 * 60 * 1000,       changeField: 'quartChange',   changeUsdField: 'quartChangeUsd' },
-      { minAge: 365 * 24 * 60 * 60 * 1000,      changeField: 'yearChange',    changeUsdField: 'yearChangeUsd' },
+      {
+        minAge: 24 * 60 * 60 * 1000,
+        changeField: "dailyChange",
+        changeUsdField: "dailyChangeUsd",
+      },
+      {
+        minAge: 7 * 24 * 60 * 60 * 1000,
+        changeField: "weeklyChange",
+        changeUsdField: "weeklyChangeUsd",
+      },
+      {
+        minAge: 30 * 24 * 60 * 60 * 1000,
+        changeField: "monthlyChange",
+        changeUsdField: "monthlyChangeUsd",
+      },
+      {
+        minAge: 90 * 24 * 60 * 60 * 1000,
+        changeField: "quartChange",
+        changeUsdField: "quartChangeUsd",
+      },
+      {
+        minAge: 365 * 24 * 60 * 60 * 1000,
+        changeField: "yearChange",
+        changeUsdField: "yearChangeUsd",
+      },
     ];
 
     for (const { minAge, changeField, changeUsdField } of periods) {
       // Найти ближайшую запись старше minAge (т.е. первую запись что старше порога)
       const threshold = now - minAge;
-      const refRecord = history.find(h => new Date(h.timestamp).getTime() <= threshold);
+      const refRecord = history.find(
+        (h) => new Date(h.timestamp).getTime() <= threshold,
+      );
       if (refRecord) {
         const refPrice = Number(refRecord.price);
-        (asset as any)[changeField] = refPrice !== 0
-          ? ((currentPrice - refPrice) / refPrice) * 100
-          : 0;
-        (asset as any)[changeUsdField] = currentPrice - refPrice;
+        // Используем Record<string, number> для динамического доступа к полям
+        const assetWithDynamicFields = asset as unknown as Record<
+          string,
+          number
+        >;
+        assetWithDynamicFields[changeField] =
+          refPrice !== 0 ? ((currentPrice - refPrice) / refPrice) * 100 : 0;
+        assetWithDynamicFields[changeUsdField] = currentPrice - refPrice;
       }
       // Если записей за период нет — оставляем текущее значение (не обнуляем)
     }
 
     // totalChange % и $ vs средней цены покупки
-    asset.totalChange = middlePriceUsd !== 0
-      ? ((currentPrice - middlePriceUsd) / middlePriceUsd) * 100
-      : 0;
+    asset.totalChange =
+      middlePriceUsd !== 0
+        ? ((currentPrice - middlePriceUsd) / middlePriceUsd) * 100
+        : 0;
     asset.totalChangeUsd = currentPrice - middlePriceUsd;
   }
 
   /**
    * Сохранить историческую цену.
    */
-  private async saveHistoricalPrice(assetId: number, price: number, source: string): Promise<void> {
+  private async saveHistoricalPrice(
+    assetId: number,
+    price: number,
+    source: string,
+  ): Promise<void> {
     try {
       const historicalPrice = this.historicalPriceRepository.create({
         assetId,
@@ -357,8 +457,12 @@ export class AssetUpdateService {
         source,
       });
       await this.historicalPriceRepository.save(historicalPrice);
-    } catch (error) {
-      this.logger.error(`Error saving historical price for asset ${assetId}: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      this.logger.error(
+        `Error saving historical price for asset ${assetId}: ${errorMessage}`,
+      );
     }
   }
 }

@@ -5,7 +5,7 @@
  * Включает валидацию email получателя, темы и текста сообщения.
  */
 
-import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail } from "class-validator";
 
 /**
  * DTO для отправки уведомления.
@@ -21,7 +21,7 @@ export class SendNotificationDto {
    * @IsEmail() проверяет корректность формата email.
    */
   @IsEmail()
-  to: string;
+  to!: string;
 
   /**
    * Тема уведомления.
@@ -30,7 +30,7 @@ export class SendNotificationDto {
    */
   @IsString()
   @IsNotEmpty()
-  subject: string;
+  subject!: string;
 
   /**
    * Текст сообщения уведомления.
@@ -39,5 +39,5 @@ export class SendNotificationDto {
    */
   @IsString()
   @IsNotEmpty()
-  message: string;
+  message!: string;
 }

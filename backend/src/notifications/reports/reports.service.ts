@@ -10,21 +10,21 @@
  *  - Учёт уникальности отчётов (canSendReport) через таблицу report_log
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationLog } from '../core/entities/notification-log.entity';
-import { ReportLog } from './report-log.entity';
-import { Asset, CryptoAsset, NFTAsset } from '../../assets/asset.entity';
-import { HistoricalPrice } from '../../assets/historical-price.entity';
-import { EmailService } from '../email/email.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { NotificationLog } from "../core/entities/notification-log.entity";
+import { ReportLog } from "./report-log.entity";
+import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
+import { HistoricalPrice } from "../../assets/historical-price.entity";
+import { EmailService } from "../email/email.service";
 
 /**
  * Данные одного актива для отчёта.
  */
 interface ReportItem {
   /** Тип актива: crypto или nft */
-  assetType: 'crypto' | 'nft';
+  assetType: "crypto" | "nft";
   /** Основное название: symbol для crypto, collectionName для nft */
   name: string;
   /** Полное название криптовалюты (только для crypto) */
@@ -45,22 +45,22 @@ interface ReportItem {
  * Минимальный возраст исторических данных для каждого периода (в мс).
  */
 const PERIOD_MIN_AGE_MS: Record<string, number> = {
-  daily:     24 * 60 * 60 * 1000,
-  weekly:     7 * 24 * 60 * 60 * 1000,
-  monthly:   30 * 24 * 60 * 60 * 1000,
+  daily: 24 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+  monthly: 30 * 24 * 60 * 60 * 1000,
   quarterly: 90 * 24 * 60 * 60 * 1000,
-  yearly:   365 * 24 * 60 * 60 * 1000,
+  yearly: 365 * 24 * 60 * 60 * 1000,
 };
 
 /**
  * Подписи периодов для заголовка отчёта.
  */
 const PERIOD_LABELS: Record<string, string> = {
-  daily:     'Daily report — last 24 hours',
-  weekly:    'Weekly report — last 7 days',
-  monthly:   'Monthly report — last 30 days',
-  quarterly: 'Quarterly report — last 90 days',
-  yearly:    'Yearly report — last 365 days',
+  daily: "Daily report — last 24 hours",
+  weekly: "Weekly report — last 7 days",
+  monthly: "Monthly report — last 30 days",
+  quarterly: "Quarterly report — last 90 days",
+  yearly: "Yearly report — last 365 days",
 };
 
 /**
@@ -115,15 +115,18 @@ export class ReportsService {
     this.logger.log(`Generating ${period} reports`);
 
     const userIds = await this.assetsRepository
-      .createQueryBuilder('asset')
-      .select('DISTINCT asset.userId', 'userId')
+      .createQueryBuilder("asset")
+      .select("DISTINCT asset.userId", "userId")
       .getRawMany();
 
     for (const { userId } of userIds) {
       try {
         await this.generateUserPeriodicReport(userId, period);
       } catch (error) {
-        this.logger.error(`Error generating ${period} report for user ${userId}: ${error.message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Error generating ${period} report for user ${userId}: ${message}`,
+        );
       }
     }
   }
@@ -145,24 +148,31 @@ export class ReportsService {
    * @param userId ID пользователя
    * @param period Период отчета
    */
-  private async generateUserPeriodicReport(userId: number, period: string): Promise<void> {
+  private async generateUserPeriodicReport(
+    userId: number,
+    period: string,
+  ): Promise<void> {
     // sub_task_2: Проверка исторических данных
     const hasHistory = await this.hasEnoughHistory(userId, period);
     if (!hasHistory) {
-      this.logger.log(`Not enough historical data for ${period} report, user ${userId} — skipping`);
+      this.logger.log(
+        `Not enough historical data for ${period} report, user ${userId} — skipping`,
+      );
       return;
     }
 
     // sub_task_3: Проверка уникальности (кулдаун)
     const canSend = await this.canSendReport(userId, period);
     if (!canSend) {
-      this.logger.log(`${period} report already sent recently for user ${userId} — skipping`);
+      this.logger.log(
+        `${period} report already sent recently for user ${userId} — skipping`,
+      );
       return;
     }
 
     const assets = await this.assetsRepository.find({
       where: { userId },
-      relations: ['user'],
+      relations: ["user"],
     });
 
     if (assets.length === 0 || !assets[0].user) return;
@@ -185,11 +195,13 @@ export class ReportsService {
       this.setLastPriceForPeriod(asset, period, currentPrice);
 
       const isCrypto = asset instanceof CryptoAsset;
-      const name = isCrypto ? (asset as CryptoAsset).symbol : (asset as NFTAsset).collectionName;
+      const name = isCrypto
+        ? (asset as CryptoAsset).symbol
+        : (asset as NFTAsset).collectionName;
       const totalValue = asset.amount * currentPrice;
 
       reportItems.push({
-        assetType: isCrypto ? 'crypto' : 'nft',
+        assetType: isCrypto ? "crypto" : "nft",
         name,
         fullName: isCrypto ? (asset as CryptoAsset).fullName : undefined,
         nativeToken: !isCrypto ? (asset as NFTAsset).nativeToken : undefined,
@@ -231,16 +243,21 @@ export class ReportsService {
     const plainText = this.buildReportMessage(reportItems, period);
     const html = this.buildReportHtml(reportItems, period);
 
-    const success = await this.emailService.sendEmail(user.email, subject, plainText, html);
+    const success = await this.emailService.sendEmail(
+      user.email,
+      subject,
+      plainText,
+      html,
+    );
 
     // Логируем в NotificationLog (общий аудит-лог)
     await this.logRepository.save({
       userId: user.id,
-      type: 'report',
+      type: "report",
       subject,
       message: plainText,
       sentAt: new Date(),
-      status: success ? 'sent' : 'failed',
+      status: success ? "sent" : "failed",
     });
 
     if (success) {
@@ -251,7 +268,7 @@ export class ReportsService {
         userId: user.id,
         period,
         sentAt: new Date(),
-        status: 'sent',
+        status: "sent",
       });
     } else {
       this.logger.error(`Failed to send report to user ${user.id}`);
@@ -280,15 +297,18 @@ export class ReportsService {
    * @param period Период отчёта
    * @returns true если данных достаточно
    */
-  private async hasEnoughHistory(userId: number, period: string): Promise<boolean> {
+  private async hasEnoughHistory(
+    userId: number,
+    period: string,
+  ): Promise<boolean> {
     const minAge = this.getPeriodMinAge(period);
     const threshold = new Date(Date.now() - minAge);
 
     const count = await this.historicalPriceRepository
-      .createQueryBuilder('hp')
-      .innerJoin('hp.asset', 'asset')
-      .where('asset.userId = :userId', { userId })
-      .andWhere('hp.timestamp <= :threshold', { threshold })
+      .createQueryBuilder("hp")
+      .innerJoin("hp.asset", "asset")
+      .where("asset.userId = :userId", { userId })
+      .andWhere("hp.timestamp <= :threshold", { threshold })
       .getCount();
 
     return count > 0;
@@ -315,10 +335,13 @@ export class ReportsService {
    * @param period Период отчёта
    * @returns true если отправка разрешена
    */
-  private async canSendReport(userId: number, period: string): Promise<boolean> {
+  private async canSendReport(
+    userId: number,
+    period: string,
+  ): Promise<boolean> {
     const lastReport = await this.reportLogRepository.findOne({
       where: { userId, period },
-      order: { sentAt: 'DESC' },
+      order: { sentAt: "DESC" },
     });
 
     if (!lastReport) return true;
@@ -367,27 +390,33 @@ export class ReportsService {
     const periodTitle = period.charAt(0).toUpperCase() + period.slice(1);
     const periodLabel = PERIOD_LABELS[period] ?? `${periodTitle} report`;
 
-    const rows = reportItems.map((item) => {
-      const isPositive = item.change >= 0;
-      const changeColor = isPositive ? 'green' : 'red';
-      const changeFormatted = (isPositive ? '+' : '') + item.change.toFixed(2) + '%';
+    const rows = reportItems
+      .map((item) => {
+        const isPositive = item.change >= 0;
+        const changeColor = isPositive ? "green" : "red";
+        const changeFormatted =
+          (isPositive ? "+" : "") + item.change.toFixed(2) + "%";
 
-      const typeBadge = item.assetType.toUpperCase();
+        const typeBadge = item.assetType.toUpperCase();
 
-      // Название актива: crypto — symbol + fullName, nft — collectionName + nativeToken
-      const nameCell = item.assetType === 'crypto'
-        ? `<strong>${item.name}</strong>${item.fullName ? `<br><small style="color:#666;">${item.fullName}</small>` : ''}`
-        : `<strong>${item.name}</strong>${item.nativeToken ? `<br><small style="color:#666;">${item.nativeToken}</small>` : ''}`;
+        // Название актива: crypto — symbol + fullName, nft — collectionName + nativeToken
+        const nameCell =
+          item.assetType === "crypto"
+            ? `<strong>${item.name}</strong>${item.fullName ? `<br><small style="color:#666;">${item.fullName}</small>` : ""}`
+            : `<strong>${item.name}</strong>${item.nativeToken ? `<br><small style="color:#666;">${item.nativeToken}</small>` : ""}`;
 
-      // Форматирование цены
-      const pricePrefix = item.assetType === 'crypto' ? '$' : '';
-      const priceSuffix = item.assetType === 'nft' && item.nativeToken ? ` ${item.nativeToken}` : '';
-      const formatPrice = (price: number | null): string => {
-        if (price === null) return '<span style="color:#aaa;">N/A</span>';
-        return `${pricePrefix}${price.toLocaleString('en-US', { maximumFractionDigits: 4 })}${priceSuffix}`;
-      };
+        // Форматирование цены
+        const pricePrefix = item.assetType === "crypto" ? "$" : "";
+        const priceSuffix =
+          item.assetType === "nft" && item.nativeToken
+            ? ` ${item.nativeToken}`
+            : "";
+        const formatPrice = (price: number | null): string => {
+          if (price === null) return '<span style="color:#aaa;">N/A</span>';
+          return `${pricePrefix}${price.toLocaleString("en-US", { maximumFractionDigits: 4 })}${priceSuffix}`;
+        };
 
-      return `
+        return `
         <tr style="border-bottom: 1px solid #e0e0e0;">
           <td style="padding: 10px 14px; font-size: 12px; font-weight: bold; color: #555; white-space: nowrap;">${typeBadge}</td>
           <td style="padding: 10px 14px; font-size: 14px;">${nameCell}</td>
@@ -395,7 +424,8 @@ export class ReportsService {
           <td style="padding: 10px 14px; font-size: 14px; white-space: nowrap;">${formatPrice(item.currentPrice)}</td>
           <td style="padding: 10px 14px; font-size: 15px; font-weight: bold; color: ${changeColor}; white-space: nowrap;">${changeFormatted}</td>
         </tr>`;
-    }).join('');
+      })
+      .join("");
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -474,12 +504,18 @@ export class ReportsService {
    */
   private getLastPriceForPeriod(asset: Asset, period: string): number | null {
     switch (period) {
-      case 'daily':     return asset.dailyPrice ?? null;
-      case 'weekly':    return asset.weeklyPrice ?? null;
-      case 'monthly':   return asset.monthlyPrice ?? null;
-      case 'quarterly': return asset.quartPrice ?? null;
-      case 'yearly':    return asset.yearPrice ?? null;
-      default:          return asset.dailyPrice ?? null;
+      case "daily":
+        return asset.dailyPrice ?? null;
+      case "weekly":
+        return asset.weeklyPrice ?? null;
+      case "monthly":
+        return asset.monthlyPrice ?? null;
+      case "quarterly":
+        return asset.quartPrice ?? null;
+      case "yearly":
+        return asset.yearPrice ?? null;
+      default:
+        return asset.dailyPrice ?? null;
     }
   }
 
@@ -490,14 +526,30 @@ export class ReportsService {
    * @param period Период
    * @param price Текущая цена
    */
-  private setLastPriceForPeriod(asset: Asset, period: string, price: number): void {
+  private setLastPriceForPeriod(
+    asset: Asset,
+    period: string,
+    price: number,
+  ): void {
     switch (period) {
-      case 'daily':     asset.dailyPrice = price; break;
-      case 'weekly':    asset.weeklyPrice = price; break;
-      case 'monthly':   asset.monthlyPrice = price; break;
-      case 'quarterly': asset.quartPrice = price; break;
-      case 'yearly':    asset.yearPrice = price; break;
-      default:          asset.dailyPrice = price; break;
+      case "daily":
+        asset.dailyPrice = price;
+        break;
+      case "weekly":
+        asset.weeklyPrice = price;
+        break;
+      case "monthly":
+        asset.monthlyPrice = price;
+        break;
+      case "quarterly":
+        asset.quartPrice = price;
+        break;
+      case "yearly":
+        asset.yearPrice = price;
+        break;
+      default:
+        asset.dailyPrice = price;
+        break;
     }
   }
 
@@ -508,9 +560,9 @@ export class ReportsService {
    * @returns Текущая цена или null
    */
   private getCurrentPrice(asset: Asset): number | null {
-    if (asset.type === 'crypto') {
+    if (asset.type === "crypto") {
       return (asset as CryptoAsset).currentPrice || null;
-    } else if (asset.type === 'nft') {
+    } else if (asset.type === "nft") {
       return (asset as NFTAsset).floorPrice || null;
     }
     return null;
@@ -523,7 +575,10 @@ export class ReportsService {
    * @param period Период
    * @returns Текст сообщения
    */
-  private buildReportMessage(reportItems: ReportItem[], period: string): string {
+  private buildReportMessage(
+    reportItems: ReportItem[],
+    period: string,
+  ): string {
     const periodTitle = period.charAt(0).toUpperCase() + period.slice(1);
 
     if (!reportItems || reportItems.length === 0) {
@@ -537,18 +592,19 @@ export class ReportsService {
       const price = item.currentPrice ?? 0;
       const change = item.change ?? 0;
       const value = item.totalValue ?? 0;
-      const lastPriceStr = item.lastPrice !== null ? `$${item.lastPrice.toFixed(2)}` : 'N/A';
+      const lastPriceStr =
+        item.lastPrice !== null ? `$${item.lastPrice.toFixed(2)}` : "N/A";
 
-      message += `${item.assetType === 'crypto' ? 'Crypto' : 'NFT'}: ${item.name}\n`;
+      message += `${item.assetType === "crypto" ? "Crypto" : "NFT"}: ${item.name}\n`;
       message += `  Price Before: ${lastPriceStr}\n`;
       message += `  Current Price: $${price.toFixed(2)}\n`;
-      message += `  Change: ${change >= 0 ? '+' : ''}${change.toFixed(2)}%\n\n`;
+      message += `  Change: ${change >= 0 ? "+" : ""}${change.toFixed(2)}%\n\n`;
 
       totalPortfolioValue += value;
     }
 
     message += `Total Portfolio Value: $${totalPortfolioValue.toFixed(2)}\n\n`;
-    message += 'Please review your investments and consider your strategy.';
+    message += "Please review your investments and consider your strategy.";
 
     return message;
   }

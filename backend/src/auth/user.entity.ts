@@ -32,7 +32,7 @@ export class User {
    * Автоинкрементный первичный ключ.
    */
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   /**
    * Email пользователя.
@@ -41,7 +41,7 @@ export class User {
    * @Column({ unique: true }) обеспечивает уникальность на уровне базы данных.
    */
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   /**
    * Хэшированный пароль пользователя.
@@ -49,7 +49,7 @@ export class User {
    * Хранится в зашифрованном виде для безопасности.
    */
   @Column()
-  password: string;
+  password!: string;
 
   /**
    * Роль пользователя в системе.
@@ -59,23 +59,23 @@ export class User {
    * Хранится как текстовое поле для совместимости с SQLite.
    */
   @Column({ type: "text", default: UserRole.USER })
-  role: UserRole;
+  role!: UserRole;
 
   /**
    * Дата создания пользователя.
    */
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   /**
    * Дата обновления пользователя.
    */
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   /**
    * Время последнего обновления активов.
    */
   @Column({ type: "datetime", nullable: true })
-  lastUpdated: Date;
+  lastUpdated?: Date;
 }

@@ -5,8 +5,8 @@
  * Предоставляет методы для отправки уведомлений пользователям.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Injectable, Logger } from "@nestjs/common";
+import * as nodemailer from "nodemailer";
 
 /**
  * Сервис для отправки email.
@@ -19,7 +19,7 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter!: nodemailer.Transporter;
 
   constructor() {
     this.initializeTransporter();
@@ -32,13 +32,13 @@ export class EmailService {
    * Использует переменные окружения для конфигурации.
    */
   private initializeTransporter() {
-    const host = process.env.YANDEX_SMTP_HOST || 'smtp.yandex.com';
-    const port = parseInt(process.env.YANDEX_SMTP_PORT || '587');
+    const host = process.env.YANDEX_SMTP_HOST || "smtp.yandex.com";
+    const port = parseInt(process.env.YANDEX_SMTP_PORT || "587");
     const user = process.env.YANDEX_SMTP_USER;
     const pass = process.env.YANDEX_SMTP_PASS;
 
     if (!user || !pass) {
-      this.logger.warn('Yandex SMTP credentials not configured');
+      this.logger.warn("Yandex SMTP credentials not configured");
       return;
     }
 
@@ -52,7 +52,7 @@ export class EmailService {
       },
     });
 
-    this.logger.log('Email transporter initialized');
+    this.logger.log("Email transporter initialized");
   }
 
   /**
@@ -64,9 +64,14 @@ export class EmailService {
    * @param html Опциональный HTML-контент письма (если не передан — генерируется из message)
    * @returns Promise<boolean> Успешность отправки
    */
-  async sendEmail(to: string, subject: string, message: string, html?: string): Promise<boolean> {
+  async sendEmail(
+    to: string,
+    subject: string,
+    message: string,
+    html?: string,
+  ): Promise<boolean> {
     if (!this.transporter) {
-      this.logger.error('Email transporter not initialized');
+      this.logger.error("Email transporter not initialized");
       return false;
     }
 
@@ -76,14 +81,15 @@ export class EmailService {
         to,
         subject,
         text: message,
-        html: html ?? `<p>${message.replace(/\n/g, '<br>')}</p>`,
+        html: html ?? `<p>${message.replace(/\n/g, "<br>")}</p>`,
       };
 
       const info = await this.transporter.sendMail(mailOptions);
       this.logger.log(`Email sent: ${info.messageId}`);
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send email: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send email: ${message}`);
       return false;
     }
   }

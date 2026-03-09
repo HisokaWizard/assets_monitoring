@@ -9,7 +9,13 @@
  * полей на основе правил (например, @IsString, @IsNotEmpty, @IsEnum).
  */
 
-import { IsString, IsNumber, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+} from "class-validator";
 
 /**
  * DTO для создания актива.
@@ -27,8 +33,8 @@ export class CreateAssetDto {
    * Должен быть одним из: 'crypto' или 'nft'.
    * @IsEnum() проверяет, что значение входит в список допустимых.
    */
-  @IsEnum(['crypto', 'nft'])
-  type: 'crypto' | 'nft';
+  @IsEnum(["crypto", "nft"])
+  type!: "crypto" | "nft";
 
   /**
    * Количество актива.
@@ -39,7 +45,7 @@ export class CreateAssetDto {
    */
   @IsNumber()
   @IsNotEmpty()
-  amount: number;
+  amount!: number;
 
   /**
    * Средняя цена актива.
@@ -50,7 +56,7 @@ export class CreateAssetDto {
    */
   @IsNumber()
   @IsNotEmpty()
-  middlePrice: number;
+  middlePrice!: number;
 
   /**
    * Символ актива (для crypto).

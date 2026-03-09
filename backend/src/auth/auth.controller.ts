@@ -7,11 +7,22 @@
  * @Controller('auth') создает префикс '/auth' для всех маршрутов.
  */
 
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { AuthGuard } from '@nestjs/passport';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Request,
+  Req,
+} from "@nestjs/common";
+import { AuthService } from "./auth.service";
+import { RegisterDto } from "./dto/register.dto";
+import { LoginDto } from "./dto/login.dto";
+import { AuthGuard } from "@nestjs/passport";
+import type { Request as ExpressRequest } from "express";
 
 /**
  * Контроллер для операций аутентификации.
@@ -21,7 +32,7 @@ import { AuthGuard } from '@nestjs/passport';
  *
  * @Controller декоратор регистрирует класс как контроллер с путем 'auth'.
  */
-@Controller('auth')
+@Controller("auth")
 export class AuthController {
   /**
    * Конструктор контроллера.
@@ -33,9 +44,9 @@ export class AuthController {
   /**
    * Получить текущего пользователя.
    */
-  @Get('me')
-  @UseGuards(AuthGuard('jwt'))
-  getMe(@Request() req) {
+  @Get("me")
+  @UseGuards(AuthGuard("jwt"))
+  getMe(@Req() req: ExpressRequest & { user: { id: number } }) {
     return this.authService.getMe(req.user.id);
   }
 
@@ -47,7 +58,7 @@ export class AuthController {
    * @Post('register') обрабатывает POST запросы на '/auth/register'.
    * @Body извлекает и валидирует данные из тела HTTP запроса.
    */
-  @Post('register')
+  @Post("register")
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -60,7 +71,7 @@ export class AuthController {
    * @Post('login') обрабатывает POST запросы на '/auth/login'.
    * @HttpCode(HttpStatus.OK) возвращает статус 200 вместо 201.
    */
-  @Post('login')
+  @Post("login")
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
@@ -69,8 +80,8 @@ export class AuthController {
   /**
    * Сбросить роль всех пользователей на 'user'.
    */
-  @Post('admin/reset-roles')
-  @UseGuards(AuthGuard('jwt'))
+  @Post("admin/reset-roles")
+  @UseGuards(AuthGuard("jwt"))
   resetRoles() {
     return this.authService.resetAllUserRoles();
   }

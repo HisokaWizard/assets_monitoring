@@ -1,7 +1,7 @@
-# Model Fallback — Автоматическое переключение модели AI
+# Model Fallback — Переключение модели AI
 
 > **name:** model-fallback
-> **description:** Автоматическое переключение модели AI при недоступности. Используй, когда: модель не отвечает, возникают ошибки API, таймауты, проблемы с подключением к антропику. Автоматически переключается на fallback-модель (minimax).
+> **description:** Переключение модели AI по запросу пользователя или при недоступности текущей модели. Пользователь может попросить переключиться на конкретную модель (opus, minimax, pickle) — используй тул modelSwitcher с указанной моделью. Также используй при ошибках API, таймаутах, проблемах с подключением.
 
 ---
 
@@ -9,92 +9,91 @@
 
 Используй этот навык, когда:
 
+- **Пользователь просит переключить модель** — он называет модель (opus, minimax, pickle, big pickle и т.д.)
 - Получаешь ошибки API (timeout, 429, 500, 503)
 - Модель не отвечает или возвращает пустой ответ
-- Видишь сообщения о недоступности anthropic/claude-opus-4-6
+- Видишь сообщения о недоступности текущей модели
 - Пользователь сообщает о проблемах с моделью
-- Возникают ошибки аутентификации с API ключами
+
+---
+
+## Доступные модели
+
+| Ключ      | Модель                     | Описание                              | Цена    |
+| --------- | -------------------------- | ------------------------------------- | ------- |
+| `opus`    | anthropic/claude-opus-4-6  | Основная модель (приоритет, лучшая)   | Платная |
+| `minimax` | opencode/minimax-m2.5-free | Fallback модель (бесплатная)          | Free    |
+| `pickle`  | opencode/big-pickle        | Fallback модель (бесплатная, stealth) | Free    |
 
 ---
 
 ## Процесс переключения
 
-### 1. Определи проблему
+### 1. Пользователь запрашивает конкретную модель
 
-Типичные ошибки при недоступности opus 4.6:
-
-```
-- APIError: Model not found
-- APIError: Rate limit exceeded
-- APIError: Service unavailable
-- Connection timeout
-- Authentication error
-```
-
-### 2. Выполни переключение
-
-Используй тул `modelSwitcher` для переключения на fallback-модель:
+Если пользователь говорит:
+- "переключи на opus" / "используй opus" → `targetModel: "opus"`
+- "переключи на minimax" → `targetModel: "minimax"`
+- "переключи на pickle" / "big pickle" / "биг пикл" → `targetModel: "pickle"`
 
 ```typescript
 modelSwitcher({
-  targetModel: 'minimax',
-  fallback: true,
+  targetModel: '<модель из таблицы выше>',
   updateAgents: true,
 });
 ```
 
-Это автоматически:
+### 2. Автоматический fallback при ошибке
 
-- Обновит `model` в opencode.json на `opencode/minimax-m2.5-free`
-- Обновит `small_model` на `opencode/minimax-m2.5-free`
-- Обновит `model` для всех агентов в секции `agent.*`
-- Сообщит о выполненных изменениях
+При ошибках API текущей модели — переключайся на одну из бесплатных:
+
+```typescript
+modelSwitcher({
+  targetModel: 'minimax', // или 'pickle'
+  fallback: true,
+  updateAgents: true,
+});
+```
 
 ### 3. Уведоми пользователя
 
 После переключения сообщи:
 
 ```
-⚠️ **Модель переключена на fallback (minimax)**
+Модель переключена на [название модели]
 
-Причина: [описание ошибки]
-Модель: opencode/minimax-m2.5-free
+Причина: [запрос пользователя / описание ошибки]
+Модель: [полный ID модели]
 
-Для возврата на opus 4.6 используй:
-modelSwitcher({ targetModel: "opus" })
+Для возврата на другую модель используй:
+modelSwitcher({ targetModel: "opus" | "minimax" | "pickle" })
 ```
 
 ---
 
-## Доступные модели
-
-| Ключ      | Модель                     | Описание                    |
-| --------- | -------------------------- | --------------------------- |
-| `opus`    | anthropic/claude-opus-4-6  | Основная модель (приоритет) |
-| `minimax` | opencode/minimax-m2.5-free | Fallback модель             |
-
----
-
 ## Примеры использования
+
+### Переключение по запросу пользователя
+
+```typescript
+// Пользователь: "переключи на opus"
+modelSwitcher({ targetModel: 'opus' });
+
+// Пользователь: "используй minimax"
+modelSwitcher({ targetModel: 'minimax' });
+
+// Пользователь: "переключи на big pickle"
+modelSwitcher({ targetModel: 'pickle' });
+```
 
 ### Автоматический fallback при ошибке
 
 ```typescript
 // При ошибке API вызови:
 modelSwitcher({
-  targetModel: 'minimax',
-  fallback: true, // включает авто-fallback логику
+  targetModel: 'pickle',
+  fallback: true,
 });
-```
-
-### Ручное переключение
-
-```typescript
-// Переключиться на opus вручную
-modelSwitcher({ targetModel: 'opus' });
-
-// Переключиться на minimax вручную
-modelSwitcher({ targetModel: 'minimax' });
 ```
 
 ### Только глобальная модель
@@ -102,7 +101,7 @@ modelSwitcher({ targetModel: 'minimax' });
 ```typescript
 // Обновить только глобальные настройки, не трогая агентов
 modelSwitcher({
-  targetModel: 'minimax',
+  targetModel: 'pickle',
   updateAgents: false,
 });
 ```
@@ -114,4 +113,5 @@ modelSwitcher({
 1. **Перезапуск требуется** — после переключения модели необходимо перезапустить opencode
 2. **Изменения сохраняются** — новые настройки записываются в opencode.json
 3. **Все агенты затрагиваются** — по умолчанию меняется и глобальная модель, и модель каждого агента
-4. **Логирование** — всегда сообщай пользователю о причине переключения
+4. **Пользователь решает** — если пользователь называет конкретную модель, переключай именно на неё
+5. **Бесплатные модели** — minimax и pickle бесплатны, но могут собирать данные для улучшения модели

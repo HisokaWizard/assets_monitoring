@@ -5,8 +5,14 @@
  * Используется для обеспечения уникальности отчётов и блокировки повторной отправки.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../auth/user.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { User } from "../../auth/user.entity";
 
 /**
  * Сущность лога периодических отчётов.
@@ -23,36 +29,36 @@ export class ReportLog {
    * Уникальный идентификатор записи.
    */
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   /**
    * ID пользователя, которому был отправлен отчёт.
    */
   @Column()
-  userId: number;
+  userId!: number;
 
   /**
    * Связь с пользователем.
    */
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @JoinColumn({ name: "userId" })
+  user!: User;
 
   /**
    * Период отчёта: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'.
    */
   @Column()
-  period: string;
+  period!: string;
 
   /**
    * Время отправки отчёта.
    */
-  @Column({ type: 'datetime' })
-  sentAt: Date;
+  @Column({ type: "datetime" })
+  sentAt!: Date;
 
   /**
    * Статус отправки: 'sent' | 'failed'.
    */
-  @Column({ default: 'sent' })
-  status: string;
+  @Column({ default: "sent" })
+  status!: string;
 }

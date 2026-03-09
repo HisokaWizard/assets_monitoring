@@ -5,7 +5,7 @@
  * Используется для валидации данных при попытке входа в систему.
  */
 
-import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty } from "class-validator";
 
 /**
  * DTO для входа пользователя.
@@ -20,7 +20,7 @@ export class LoginDto {
    * Должен быть валидным email адресом.
    */
   @IsEmail()
-  email: string;
+  email!: string;
 
   /**
    * Пароль пользователя.
@@ -29,5 +29,5 @@ export class LoginDto {
    */
   @IsString()
   @IsNotEmpty()
-  password: string;
+  password!: string;
 }

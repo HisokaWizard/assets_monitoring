@@ -5,8 +5,14 @@
  * Используется для графиков и будущих предсказаний LLM.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Asset } from './asset.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { Asset } from "./asset.entity";
 
 /**
  * Сущность исторической цены.
@@ -22,36 +28,36 @@ export class HistoricalPrice {
    * Уникальный идентификатор записи.
    */
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   /**
    * ID актива.
    */
   @Column()
-  assetId: number;
+  assetId!: number;
 
   /**
    * Связь с активом.
    */
-  @ManyToOne(() => Asset, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'assetId' })
-  asset: Asset;
+  @ManyToOne(() => Asset, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "assetId" })
+  asset!: Asset;
 
   /**
    * Цена актива.
    */
-  @Column('decimal')
-  price: number;
+  @Column("decimal")
+  price!: number;
 
   /**
    * Временная метка цены.
    */
-  @Column({ type: 'datetime' })
-  timestamp: Date;
+  @Column({ type: "datetime" })
+  timestamp!: Date;
 
   /**
    * Источник данных (CoinMarketCap, OpenSea).
    */
-  @Column({ default: 'API' })
-  source: string;
+  @Column({ default: "API" })
+  source!: string;
 }

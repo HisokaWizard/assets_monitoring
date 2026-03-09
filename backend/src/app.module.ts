@@ -10,21 +10,22 @@
  * контроллеры (обработчики HTTP запросов), провайдеры (сервисы, репозитории и т.д.).
  */
 
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios';
-import { ScheduleModule } from '@nestjs/schedule';
-import { AssetsModule } from './assets/assets.module';
-import { AuthModule } from './auth/auth.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { UserSettingsModule } from './user-settings/user-settings.module';
-import { Asset, CryptoAsset, NFTAsset } from './assets/asset.entity';
-import { HistoricalPrice } from './assets/historical-price.entity';
-import { User } from './auth/user.entity';
-import { NotificationSettings } from './notifications/core/entities/notification-settings.entity';
-import { NotificationLog } from './notifications/core/entities/notification-log.entity';
-import { ReportLog } from './notifications/reports/report-log.entity';
-import { UserSettings } from './user-settings/core/entities/user-settings.entity';
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { HttpModule } from "@nestjs/axios";
+import { ScheduleModule } from "@nestjs/schedule";
+import { AssetsModule } from "./assets/assets.module";
+import { AuthModule } from "./auth/auth.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { UserSettingsModule } from "./user-settings/user-settings.module";
+import { Asset, CryptoAsset, NFTAsset } from "./assets/asset.entity";
+import { HistoricalPrice } from "./assets/historical-price.entity";
+import { User } from "./auth/user.entity";
+import { NotificationSettings } from "./notifications/core/entities/notification-settings.entity";
+import { NotificationLog } from "./notifications/core/entities/notification-log.entity";
+import { ReportLog } from "./notifications/reports/report-log.entity";
+import { UserSettings } from "./user-settings/core/entities/user-settings.entity";
+import { InitialSchema1741500000000 } from "./database/migrations/1741500000000-InitialSchema";
 
 /**
  * Корневой модуль приложения.
@@ -39,10 +40,22 @@ import { UserSettings } from './user-settings/core/entities/user-settings.entity
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: process.env.DB_DATABASE || 'database.sqlite',
-      entities: [Asset, CryptoAsset, NFTAsset, HistoricalPrice, User, NotificationSettings, NotificationLog, ReportLog, UserSettings],
-      synchronize: true, // For development; use migrations in production
+      type: "sqlite",
+      database: process.env.DB_DATABASE || "database.sqlite",
+      entities: [
+        Asset,
+        CryptoAsset,
+        NFTAsset,
+        HistoricalPrice,
+        User,
+        NotificationSettings,
+        NotificationLog,
+        ReportLog,
+        UserSettings,
+      ],
+      synchronize: process.env.NODE_ENV !== "production", // Disable in production - use migrations
+      migrations: [InitialSchema1741500000000],
+      migrationsRun: true,
     }),
     HttpModule,
     ScheduleModule.forRoot(),

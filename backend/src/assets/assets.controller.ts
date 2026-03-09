@@ -9,11 +9,32 @@
  * @Controller('assets') создает префикс '/assets' для всех маршрутов контроллера.
  */
 
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Request, NotFoundException } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { AssetsService } from './assets.service';
-import { CreateAssetDto } from './dto/create-asset.dto';
-import { UpdateAssetDto } from './dto/update-asset.dto';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Delete,
+  UseGuards,
+  Request,
+  NotFoundException,
+  Req,
+} from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { AssetsService } from "./assets.service";
+import { CreateAssetDto } from "./dto/create-asset.dto";
+import { UpdateAssetDto } from "./dto/update-asset.dto";
+
+/**
+ * Расширенный тип запроса с пользователем из JWT.
+ */
+interface AuthRequest {
+  user: {
+    id: number;
+  };
+}
 
 /**
  * Контроллер для операций с активами.
@@ -24,8 +45,8 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
  * @Controller декоратор регистрирует класс как контроллер,
  * который обрабатывает HTTP запросы по указанному пути.
  */
-@UseGuards(AuthGuard('jwt'))
-@Controller('assets')
+@UseGuards(AuthGuard("jwt"))
+@Controller("assets")
 export class AssetsController {
   /**
    * Конструктор контроллера.
@@ -54,8 +75,8 @@ export class AssetsController {
    * @Get(':id') обрабатывает GET запросы на '/assets/:id'.
    * @Param('id') извлекает параметр из URL.
    */
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @Get(":id")
+  async findOne(@Param("id") id: string) {
     const asset = await this.assetsService.findOne(+id);
     if (!asset) {
       throw new NotFoundException(`Asset with ID ${id} not found`);
@@ -74,8 +95,11 @@ export class AssetsController {
    * @Request предоставляет доступ к объекту запроса с пользователем.
    */
   @Post()
-  create(@Body() createAssetDto: CreateAssetDto, @Request() req) {
-    return this.assetsService.create({ ...createAssetDto, userId: req.user.id });
+  create(@Body() createAssetDto: CreateAssetDto, @Req() req: AuthRequest) {
+    return this.assetsService.create({
+      ...createAssetDto,
+      userId: req.user.id,
+    });
   }
 
   /**
@@ -86,8 +110,11 @@ export class AssetsController {
    * @returns Обновленный актив.
    * @Put(':id') обрабатывает PUT запросы на '/assets/:id'.
    */
-  @Put(':id')
-  async update(@Param('id') id: string, @Body() updateAssetDto: UpdateAssetDto) {
+  @Put(":id")
+  async update(
+    @Param("id") id: string,
+    @Body() updateAssetDto: UpdateAssetDto,
+  ) {
     const asset = await this.assetsService.update(+id, updateAssetDto);
     if (!asset) {
       throw new NotFoundException(`Asset with ID ${id} not found`);
@@ -101,8 +128,8 @@ export class AssetsController {
    * @param id Идентификатор актива для удаления.
    * @Delete(':id') обрабатывает DELETE запросы на '/assets/:id'.
    */
-  @Delete(':id')
-  async remove(@Param('id') id: string) {
+  @Delete(":id")
+  async remove(@Param("id") id: string) {
     const asset = await this.assetsService.findOne(+id);
     if (!asset) {
       throw new NotFoundException(`Asset with ID ${id} not found`);
@@ -117,8 +144,8 @@ export class AssetsController {
    * @returns Массив обновлённых активов.
    * @Post('refresh') обрабатывает POST запросы на '/assets/refresh'.
    */
-  @Post('refresh')
-  refreshAll(@Request() req) {
+  @Post("refresh")
+  refreshAll(@Req() req: AuthRequest) {
     return this.assetsService.refreshAll(req.user.id);
   }
 
@@ -129,8 +156,8 @@ export class AssetsController {
    * @returns Массив обновлённых NFT активов.
    * @Post('refresh-nft') обрабатывает POST запросы на '/assets/refresh-nft'.
    */
-  @Post('refresh-nft')
-  refreshNFTs(@Request() req) {
+  @Post("refresh-nft")
+  refreshNFTs(@Req() req: AuthRequest) {
     return this.assetsService.refreshNFTs(req.user.id);
   }
 }

@@ -30,7 +30,7 @@ describe("JwtStrategy", () => {
         email: "test@example.com",
         password: "",
         role: UserRole.USER,
-        lastUpdated: null,
+        lastUpdated: undefined,
       });
     });
 
@@ -82,7 +82,7 @@ describe("JwtStrategy", () => {
       expect(result.password).toBe("");
     });
 
-    it("should return null for lastUpdated", async () => {
+    it("should return undefined for lastUpdated", async () => {
       const payload = {
         email: "test@example.com",
         sub: 1,
@@ -91,7 +91,7 @@ describe("JwtStrategy", () => {
 
       const result = await strategy.validate(payload);
 
-      expect(result.lastUpdated).toBeNull();
+      expect(result.lastUpdated).toBeUndefined();
     });
 
     it("should handle different user roles", async () => {

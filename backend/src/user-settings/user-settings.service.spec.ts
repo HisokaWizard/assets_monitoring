@@ -25,8 +25,8 @@ describe("UserSettingsService", () => {
     role: UserRole.USER,
     createdAt: new Date(),
     updatedAt: new Date(),
-    lastUpdated: null,
-  };
+    lastUpdated: new Date(),
+  } as User;
 
   const mockRepository = {
     findOne: jest.fn(),
@@ -90,9 +90,9 @@ describe("UserSettingsService", () => {
       const result = await service.getUserSettings(mockUser);
 
       expect(result).toBeDefined();
-      expect(result.id).toBe(1);
-      expect(result.coinmarketcapApiKey).toBe(plainKey);
-      expect(result.openseaApiKey).toBe(plainKey);
+      expect(result!.id).toBe(1);
+      expect(result!.coinmarketcapApiKey).toBe(plainKey);
+      expect(result!.openseaApiKey).toBe(plainKey);
     });
   });
 

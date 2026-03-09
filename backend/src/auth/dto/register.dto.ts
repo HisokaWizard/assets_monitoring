@@ -23,7 +23,7 @@ export class RegisterDto {
    * @IsEmail() проверяет формат email.
    */
   @IsEmail()
-  email: string;
+  email!: string;
 
   /**
    * Пароль пользователя.
@@ -34,5 +34,5 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(6)
-  password: string;
+  password!: string;
 }

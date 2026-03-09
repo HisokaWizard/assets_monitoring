@@ -20,8 +20,8 @@ import {
   ChildEntity,
   ManyToOne,
   JoinColumn,
-} from 'typeorm';
-import { User } from '../auth/user.entity';
+} from "typeorm";
+import { User } from "../auth/user.entity";
 
 /**
  * Базовая сущность актива.
@@ -30,188 +30,188 @@ import { User } from '../auth/user.entity';
  * Использует Table Per Class inheritance, где каждая подсущность имеет свою таблицу.
  */
 @Entity()
-@TableInheritance({ column: { type: 'varchar', name: 'type' } })
+@TableInheritance({ column: { type: "varchar", name: "type" } })
 export class Asset {
   /**
    * Уникальный идентификатор актива.
    */
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   /**
    * Тип актива (crypto или nft).
    */
-  @Column({ name: 'type', nullable: true })
-  type: 'crypto' | 'nft';
+  @Column({ name: "type", nullable: true })
+  type!: "crypto" | "nft";
 
   /**
    * Количество актива.
    */
-  @Column('decimal')
-  amount: number;
+  @Column("decimal")
+  amount!: number;
 
   /**
    * Средняя цена.
    */
-  @Column('decimal')
-  middlePrice: number;
+  @Column("decimal")
+  middlePrice!: number;
 
   /**
    * Предыдущая цена.
    */
-  @Column('decimal')
-  previousPrice: number;
+  @Column("decimal")
+  previousPrice!: number;
 
   /**
    * Множитель.
    */
-  @Column('decimal')
-  multiple: number;
+  @Column("decimal")
+  multiple!: number;
 
   /**
    * Изменение за день.
    */
-  @Column('decimal')
-  dailyChange: number;
+  @Column("decimal")
+  dailyChange!: number;
 
   /**
    * Изменение за неделю.
    */
-  @Column('decimal')
-  weeklyChange: number;
+  @Column("decimal")
+  weeklyChange!: number;
 
   /**
    * Изменение за месяц.
    */
-  @Column('decimal')
-  monthlyChange: number;
+  @Column("decimal")
+  monthlyChange!: number;
 
   /**
    * Изменение за квартал.
    */
-  @Column('decimal')
-  quartChange: number;
+  @Column("decimal")
+  quartChange!: number;
 
   /**
    * Изменение за год.
    */
-  @Column('decimal')
-  yearChange: number;
+  @Column("decimal")
+  yearChange!: number;
 
   /**
    * Общее изменение (%).
    */
-  @Column('decimal')
-  totalChange: number;
+  @Column("decimal")
+  totalChange!: number;
 
   /**
    * Изменение за день ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  dailyChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  dailyChangeUsd!: number;
 
   /**
    * Изменение за неделю ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  weeklyChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  weeklyChangeUsd!: number;
 
   /**
    * Изменение за месяц ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  monthlyChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  monthlyChangeUsd!: number;
 
   /**
    * Изменение за квартал ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  quartChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  quartChangeUsd!: number;
 
   /**
    * Изменение за год ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  yearChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  yearChangeUsd!: number;
 
   /**
    * Общее изменение ($).
    */
-  @Column({ type: 'decimal', nullable: true, default: 0 })
-  totalChangeUsd: number;
+  @Column({ type: "decimal", nullable: true, default: 0 })
+  totalChangeUsd!: number;
 
   /**
    * Цена за день.
    */
-  @Column({ type: 'decimal', nullable: true })
-  dailyPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  dailyPrice!: number;
 
   /**
    * Временная метка за день.
    */
-  @Column({ type: 'datetime', nullable: true })
-  dailyTimestamp: Date;
+  @Column({ type: "datetime", nullable: true })
+  dailyTimestamp!: Date;
 
   /**
    * Цена за неделю.
    */
-  @Column({ type: 'decimal', nullable: true })
-  weeklyPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  weeklyPrice!: number;
 
   /**
    * Временная метка за неделю.
    */
-  @Column({ type: 'datetime', nullable: true })
-  weeklyTimestamp: Date;
+  @Column({ type: "datetime", nullable: true })
+  weeklyTimestamp!: Date;
 
   /**
    * Цена за месяц.
    */
-  @Column({ type: 'decimal', nullable: true })
-  monthlyPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  monthlyPrice!: number;
 
   /**
    * Временная метка за месяц.
    */
-  @Column({ type: 'datetime', nullable: true })
-  monthlyTimestamp: Date;
+  @Column({ type: "datetime", nullable: true })
+  monthlyTimestamp!: Date;
 
   /**
    * Цена за квартал.
    */
-  @Column({ type: 'decimal', nullable: true })
-  quartPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  quartPrice!: number;
 
   /**
    * Временная метка за квартал.
    */
-  @Column({ type: 'datetime', nullable: true })
-  quartTimestamp: Date;
+  @Column({ type: "datetime", nullable: true })
+  quartTimestamp!: Date;
 
   /**
    * Цена за год.
    */
-  @Column({ type: 'decimal', nullable: true })
-  yearPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  yearPrice!: number;
 
   /**
    * Временная метка за год.
    */
-  @Column({ type: 'datetime', nullable: true })
-  yearTimestamp: Date;
+  @Column({ type: "datetime", nullable: true })
+  yearTimestamp!: Date;
 
   /**
    * ID пользователя, которому принадлежит актив.
    */
   @Column()
-  userId: number;
+  userId!: number;
 
   /**
    * Связь с пользователем.
    */
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @JoinColumn({ name: "userId" })
+  user!: User;
 }
 
 /**
@@ -219,25 +219,25 @@ export class Asset {
  *
  * Наследует от Asset и добавляет специфичные поля для криптовалют.
  */
-@ChildEntity('crypto')
+@ChildEntity("crypto")
 export class CryptoAsset extends Asset {
   /**
    * Символ криптовалюты (например, "BTC").
    */
   @Column({ nullable: true })
-  symbol: string;
+  symbol!: string;
 
   /**
    * Полное название криптовалюты (например, "Bitcoin").
    */
   @Column({ nullable: true })
-  fullName: string;
+  fullName!: string;
 
   /**
    * Текущая цена криптовалюты.
    */
-  @Column({ type: 'decimal', nullable: true })
-  currentPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  currentPrice!: number;
 }
 
 /**
@@ -248,43 +248,43 @@ export class CryptoAsset extends Asset {
  * floorPrice хранится в нативном токене (из OpenSea).
  * floorPriceUsd и middlePriceUsd — соответствующие USD-значения.
  */
-@ChildEntity('nft')
+@ChildEntity("nft")
 export class NFTAsset extends Asset {
   /**
    * Название коллекции NFT (slug для OpenSea API).
    */
   @Column({ nullable: true })
-  collectionName: string;
+  collectionName!: string;
 
   /**
    * Символ нативного токена коллекции (например, 'ETH', 'SOL', 'WETH', 'ATOM').
    * Используется для получения курса через CoinMarketCap.
    */
   @Column({ nullable: true })
-  nativeToken: string;
+  nativeToken!: string;
 
   /**
    * Цена пола коллекции в нативном токене (из OpenSea floor_price).
    */
-  @Column({ type: 'decimal', nullable: true })
-  floorPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  floorPrice!: number;
 
   /**
    * Цена пола коллекции в USD (из OpenSea floor_price_usd).
    */
-  @Column({ type: 'decimal', nullable: true })
-  floorPriceUsd: number;
+  @Column({ type: "decimal", nullable: true })
+  floorPriceUsd!: number;
 
   /**
    * Средняя цена покупки в USD (middlePrice * курс nativeToken из CoinMarketCap).
    * Рассчитывается при создании актива и обновляется при refresh.
    */
-  @Column({ type: 'decimal', nullable: true })
-  middlePriceUsd: number;
+  @Column({ type: "decimal", nullable: true })
+  middlePriceUsd!: number;
 
   /**
    * Цена по признакам (trait price) в нативном токене.
    */
-  @Column({ type: 'decimal', nullable: true })
-  traitPrice: number;
+  @Column({ type: "decimal", nullable: true })
+  traitPrice!: number;
 }

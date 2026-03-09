@@ -7,14 +7,14 @@
  * Настраивает Passport для JWT стратегии и JwtModule для генерации токенов.
  */
 
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { JwtStrategy } from './jwt.strategy';
-import { User } from './user.entity';
+import { Module, OnModuleInit } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { JwtModule } from "@nestjs/jwt";
+import { PassportModule } from "@nestjs/passport";
+import { AuthService } from "./auth.service";
+import { AuthController } from "./auth.controller";
+import { JwtStrategy } from "./jwt.strategy";
+import { User } from "./user.entity";
 
 /**
  * Модуль аутентификации.
@@ -32,11 +32,28 @@ import { User } from './user.entity';
     TypeOrmModule.forFeature([User]),
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secret',
-      signOptions: { expiresIn: '2h' },
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: "2h" },
     }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
 })
-export class AuthModule {}
+export class AuthModule implements OnModuleInit {
+  /**
+   * Инициализация модуля.
+   *
+   * Проверяет наличие обязательной переменной окружения JWT_SECRET
+   * при старте приложения. Без неё приложение не может безопасно работать.
+   */
+  async onModuleInit(): Promise<void> {
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      throw new Error(
+        "FATAL: JWT_SECRET environment variable is not set. " +
+          "Application cannot start without secure JWT secret.",
+      );
+    }
+  }
+}

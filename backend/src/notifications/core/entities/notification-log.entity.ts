@@ -5,8 +5,14 @@
  * Включает информацию о получателе, типе и статусе отправки.
  */
 
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../../auth/user.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { User } from "../../../auth/user.entity";
 
 /**
  * Сущность лога уведомлений.
@@ -22,48 +28,48 @@ export class NotificationLog {
    * Уникальный идентификатор лога.
    */
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   /**
    * ID пользователя-получателя.
    */
   @Column()
-  userId: number;
+  userId!: number;
 
   /**
    * Связь с пользователем.
    */
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @JoinColumn({ name: "userId" })
+  user!: User;
 
   /**
    * Тип уведомления (alert, report).
    */
   @Column()
-  type: string;
+  type!: string;
 
   /**
    * Тема уведомления.
    */
   @Column()
-  subject: string;
+  subject!: string;
 
   /**
    * Текст сообщения.
    */
-  @Column('text')
-  message: string;
+  @Column("text")
+  message!: string;
 
   /**
    * Время отправки.
    */
-  @Column({ type: 'datetime' })
-  sentAt: Date;
+  @Column({ type: "datetime" })
+  sentAt!: Date;
 
   /**
    * Статус отправки (sent, failed).
    */
-  @Column({ default: 'sent' })
-  status: string;
+  @Column({ default: "sent" })
+  status!: string;
 }
