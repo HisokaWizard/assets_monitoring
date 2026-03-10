@@ -22,6 +22,13 @@ import {
   NotFoundException,
   Req,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { AssetsService } from "./assets.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
@@ -45,6 +52,8 @@ interface AuthRequest {
  * @Controller декоратор регистрирует класс как контроллер,
  * который обрабатывает HTTP запросы по указанному пути.
  */
+@ApiTags("assets")
+@ApiBearerAuth()
 @UseGuards(AuthGuard("jwt"))
 @Controller("assets")
 export class AssetsController {
@@ -62,6 +71,8 @@ export class AssetsController {
    * @returns Массив всех активов.
    * @Get декоратор обрабатывает GET запросы на '/assets'.
    */
+  @ApiOperation({ summary: "Получить все активы" })
+  @ApiResponse({ status: 200, description: "Список активов" })
   @Get()
   findAll() {
     return this.assetsService.findAll();
@@ -75,6 +86,10 @@ export class AssetsController {
    * @Get(':id') обрабатывает GET запросы на '/assets/:id'.
    * @Param('id') извлекает параметр из URL.
    */
+  @ApiOperation({ summary: "Получить актив по ID" })
+  @ApiParam({ name: "id", type: Number, description: "ID актива" })
+  @ApiResponse({ status: 200, description: "Актив найден" })
+  @ApiResponse({ status: 404, description: "Актив не найден" })
   @Get(":id")
   async findOne(@Param("id") id: string) {
     const asset = await this.assetsService.findOne(+id);
@@ -94,6 +109,9 @@ export class AssetsController {
    * @Body извлекает данные из тела HTTP запроса.
    * @Request предоставляет доступ к объекту запроса с пользователем.
    */
+  @ApiOperation({ summary: "Создать новый актив" })
+  @ApiResponse({ status: 201, description: "Актив создан" })
+  @ApiResponse({ status: 400, description: "Невалидные данные" })
   @Post()
   create(@Body() createAssetDto: CreateAssetDto, @Req() req: AuthRequest) {
     return this.assetsService.create({
@@ -110,6 +128,10 @@ export class AssetsController {
    * @returns Обновленный актив.
    * @Put(':id') обрабатывает PUT запросы на '/assets/:id'.
    */
+  @ApiOperation({ summary: "Обновить актив" })
+  @ApiParam({ name: "id", type: Number, description: "ID актива" })
+  @ApiResponse({ status: 200, description: "Актив обновлён" })
+  @ApiResponse({ status: 404, description: "Актив не найден" })
   @Put(":id")
   async update(
     @Param("id") id: string,
@@ -128,6 +150,10 @@ export class AssetsController {
    * @param id Идентификатор актива для удаления.
    * @Delete(':id') обрабатывает DELETE запросы на '/assets/:id'.
    */
+  @ApiOperation({ summary: "Удалить актив" })
+  @ApiParam({ name: "id", type: Number, description: "ID актива" })
+  @ApiResponse({ status: 200, description: "Актив удалён" })
+  @ApiResponse({ status: 404, description: "Актив не найден" })
   @Delete(":id")
   async remove(@Param("id") id: string) {
     const asset = await this.assetsService.findOne(+id);
@@ -144,6 +170,8 @@ export class AssetsController {
    * @returns Массив обновлённых активов.
    * @Post('refresh') обрабатывает POST запросы на '/assets/refresh'.
    */
+  @ApiOperation({ summary: "Обновить цены всех активов пользователя" })
+  @ApiResponse({ status: 201, description: "Цены обновлены" })
   @Post("refresh")
   refreshAll(@Req() req: AuthRequest) {
     return this.assetsService.refreshAll(req.user.id);
@@ -156,6 +184,8 @@ export class AssetsController {
    * @returns Массив обновлённых NFT активов.
    * @Post('refresh-nft') обрабатывает POST запросы на '/assets/refresh-nft'.
    */
+  @ApiOperation({ summary: "Обновить цены NFT активов пользователя" })
+  @ApiResponse({ status: 201, description: "Цены NFT обновлены" })
   @Post("refresh-nft")
   refreshNFTs(@Req() req: AuthRequest) {
     return this.assetsService.refreshNFTs(req.user.id);

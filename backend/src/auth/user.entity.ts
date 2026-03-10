@@ -14,6 +14,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
+import {
+  ApiProperty,
+  ApiHideProperty,
+  ApiPropertyOptional,
+} from "@nestjs/swagger";
 import { UserRole } from "./user-role.enum";
 
 /**
@@ -31,6 +36,10 @@ export class User {
    *
    * Автоинкрементный первичный ключ.
    */
+  @ApiProperty({
+    description: "Уникальный идентификатор пользователя",
+    example: 1,
+  })
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -40,6 +49,10 @@ export class User {
    * Должен быть уникальным в системе.
    * @Column({ unique: true }) обеспечивает уникальность на уровне базы данных.
    */
+  @ApiProperty({
+    description: "Email пользователя",
+    example: "user@example.com",
+  })
   @Column({ unique: true })
   email!: string;
 
@@ -48,6 +61,7 @@ export class User {
    *
    * Хранится в зашифрованном виде для безопасности.
    */
+  @ApiHideProperty()
   @Column()
   password!: string;
 
@@ -58,24 +72,42 @@ export class User {
    * Используется для авторизации и контроля доступа к ресурсам.
    * Хранится как текстовое поле для совместимости с SQLite.
    */
+  @ApiProperty({
+    description: "Роль пользователя",
+    enum: UserRole,
+    example: UserRole.USER,
+  })
   @Column({ type: "text", default: UserRole.USER })
   role!: UserRole;
 
   /**
    * Дата создания пользователя.
    */
+  @ApiProperty({
+    description: "Дата создания пользователя",
+    example: "2025-01-01T00:00:00.000Z",
+  })
   @CreateDateColumn()
   createdAt!: Date;
 
   /**
    * Дата обновления пользователя.
    */
+  @ApiProperty({
+    description: "Дата последнего обновления пользователя",
+    example: "2025-01-01T00:00:00.000Z",
+  })
   @UpdateDateColumn()
   updatedAt!: Date;
 
   /**
    * Время последнего обновления активов.
    */
+  @ApiPropertyOptional({
+    description: "Время последнего обновления активов",
+    example: "2025-01-01T00:00:00.000Z",
+    nullable: true,
+  })
   @Column({ type: "datetime", nullable: true })
   lastUpdated?: Date;
 }

@@ -14,6 +14,7 @@ import {
   IsIn,
   IsOptional,
 } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 /**
  * DTO для создания настроек уведомлений.
@@ -24,6 +25,11 @@ export class CreateNotificationSettingsDto {
   /**
    * Тип актива (crypto, nft).
    */
+  @ApiProperty({
+    description: "Тип актива",
+    enum: ["crypto", "nft"],
+    example: "crypto",
+  })
   @IsString()
   @IsIn(["crypto", "nft"])
   assetType!: string;
@@ -31,6 +37,11 @@ export class CreateNotificationSettingsDto {
   /**
    * Включены ли уведомления.
    */
+  @ApiPropertyOptional({
+    description: "Включены ли уведомления",
+    default: true,
+    example: true,
+  })
   @IsOptional()
   @IsBoolean()
   enabled?: boolean = true;
@@ -38,6 +49,13 @@ export class CreateNotificationSettingsDto {
   /**
    * Порог изменения цены в процентах.
    */
+  @ApiPropertyOptional({
+    description: "Порог изменения цены (%)",
+    minimum: 0,
+    maximum: 100,
+    default: 10,
+    example: 10,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -47,6 +65,12 @@ export class CreateNotificationSettingsDto {
   /**
    * Интервал проверки в часах (2,4,6,8,10,12).
    */
+  @ApiPropertyOptional({
+    description: "Интервал проверки (часы)",
+    enum: [2, 4, 6, 8, 10, 12],
+    default: 4,
+    example: 4,
+  })
   @IsOptional()
   @IsNumber()
   @IsIn([2, 4, 6, 8, 10, 12])
@@ -55,6 +79,11 @@ export class CreateNotificationSettingsDto {
   /**
    * Интервал обновления в часах.
    */
+  @ApiPropertyOptional({
+    description: "Интервал обновления активов (часы)",
+    default: 4,
+    example: 4,
+  })
   @IsOptional()
   @IsNumber()
   updateIntervalHours?: number = 4;

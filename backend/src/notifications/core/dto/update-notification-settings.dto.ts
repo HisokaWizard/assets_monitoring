@@ -5,12 +5,14 @@
  * Все поля опциональны.
  */
 
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateNotificationSettingsDto } from './create-notification-settings.dto';
+import { PartialType } from "@nestjs/swagger";
+import { CreateNotificationSettingsDto } from "./create-notification-settings.dto";
 
 /**
  * DTO для обновления настроек уведомлений.
  *
  * Наследует от CreateNotificationSettingsDto, делая все поля опциональными.
  */
-export class UpdateNotificationSettingsDto extends PartialType(CreateNotificationSettingsDto) {}
+export class UpdateNotificationSettingsDto extends PartialType(
+  CreateNotificationSettingsDto,
+) {}

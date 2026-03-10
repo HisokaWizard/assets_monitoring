@@ -6,6 +6,7 @@
  */
 
 import { IsString, IsNotEmpty, IsEmail } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
 
 /**
  * DTO для отправки уведомления.
@@ -20,6 +21,7 @@ export class SendNotificationDto {
    * Должен быть валидным email адресом.
    * @IsEmail() проверяет корректность формата email.
    */
+  @ApiProperty({ description: "Email получателя", example: "user@example.com" })
   @IsEmail()
   to!: string;
 
@@ -28,6 +30,10 @@ export class SendNotificationDto {
    *
    * Должна быть непустой строкой.
    */
+  @ApiProperty({
+    description: "Тема уведомления",
+    example: "Изменение цены BTC",
+  })
   @IsString()
   @IsNotEmpty()
   subject!: string;
@@ -37,6 +43,10 @@ export class SendNotificationDto {
    *
    * Должен содержать непустой текст.
    */
+  @ApiProperty({
+    description: "Текст сообщения",
+    example: "Цена BTC выросла на 15%",
+  })
   @IsString()
   @IsNotEmpty()
   message!: string;

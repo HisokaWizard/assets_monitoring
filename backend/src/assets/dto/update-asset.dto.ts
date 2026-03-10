@@ -9,8 +9,8 @@
  * не требуя указания всех параметров.
  */
 
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateAssetDto } from './create-asset.dto';
+import { PartialType } from "@nestjs/swagger";
+import { CreateAssetDto } from "./create-asset.dto";
 
 /**
  * DTO для обновления актива.

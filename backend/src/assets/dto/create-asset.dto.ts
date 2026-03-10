@@ -16,6 +16,7 @@ import {
   IsEnum,
   IsOptional,
 } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 /**
  * DTO для создания актива.
@@ -33,6 +34,11 @@ export class CreateAssetDto {
    * Должен быть одним из: 'crypto' или 'nft'.
    * @IsEnum() проверяет, что значение входит в список допустимых.
    */
+  @ApiProperty({
+    description: "Тип актива",
+    enum: ["crypto", "nft"],
+    example: "crypto",
+  })
   @IsEnum(["crypto", "nft"])
   type!: "crypto" | "nft";
 
@@ -43,6 +49,7 @@ export class CreateAssetDto {
    * @IsNumber() валидирует числовой тип.
    * @IsNotEmpty() гарантирует, что значение не пустое.
    */
+  @ApiProperty({ description: "Количество актива", example: 1.5 })
   @IsNumber()
   @IsNotEmpty()
   amount!: number;
@@ -54,6 +61,7 @@ export class CreateAssetDto {
    * @IsNumber() валидирует числовой тип.
    * @IsNotEmpty() гарантирует, что значение не пустое.
    */
+  @ApiProperty({ description: "Средняя цена покупки", example: 45000 })
   @IsNumber()
   @IsNotEmpty()
   middlePrice!: number;
@@ -65,6 +73,10 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsString() проверяет, что значение является строкой.
    */
+  @ApiPropertyOptional({
+    description: "Символ криптовалюты (для crypto)",
+    example: "BTC",
+  })
   @IsOptional()
   @IsString()
   symbol?: string;
@@ -76,6 +88,10 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsString() проверяет, что значение является строкой.
    */
+  @ApiPropertyOptional({
+    description: "Полное название (для crypto)",
+    example: "Bitcoin",
+  })
   @IsOptional()
   @IsString()
   fullName?: string;
@@ -87,6 +103,10 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsNumber() валидирует числовой тип.
    */
+  @ApiPropertyOptional({
+    description: "Текущая цена (для crypto)",
+    example: 67000,
+  })
   @IsOptional()
   @IsNumber()
   currentPrice?: number;
@@ -98,6 +118,10 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsString() проверяет, что значение является строкой.
    */
+  @ApiPropertyOptional({
+    description: "Название коллекции NFT (slug)",
+    example: "bored-ape-yacht-club",
+  })
   @IsOptional()
   @IsString()
   collectionName?: string;
@@ -110,6 +134,10 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsString() проверяет, что значение является строкой.
    */
+  @ApiPropertyOptional({
+    description: "Нативный токен коллекции",
+    example: "ETH",
+  })
   @IsOptional()
   @IsString()
   nativeToken?: string;
@@ -121,6 +149,7 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsNumber() валидирует числовой тип.
    */
+  @ApiPropertyOptional({ description: "Цена пола коллекции", example: 30.5 })
   @IsOptional()
   @IsNumber()
   floorPrice?: number;
@@ -132,6 +161,7 @@ export class CreateAssetDto {
    * @IsOptional() делает поле опциональным.
    * @IsNumber() валидирует числовой тип.
    */
+  @ApiPropertyOptional({ description: "Цена по признакам", example: 45.0 })
   @IsOptional()
   @IsNumber()
   traitPrice?: number;

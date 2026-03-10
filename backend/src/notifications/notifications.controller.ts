@@ -20,6 +20,14 @@ import {
   Request,
   Req,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+} from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { NotificationsService } from "./notifications.service";
 import { SendNotificationDto } from "./core/dto/send-notification.dto";
@@ -42,6 +50,7 @@ interface AuthRequest {
  *
  * @Controller декоратор регистрирует класс как контроллер.
  */
+@ApiTags("notifications")
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
@@ -49,6 +58,8 @@ export class NotificationsController {
   /**
    * Отправка уведомления (для совместимости).
    */
+  @ApiOperation({ summary: "Отправить уведомление" })
+  @ApiResponse({ status: 201, description: "Уведомление отправлено" })
   @Post("send")
   send(@Body() sendNotificationDto: SendNotificationDto) {
     return this.notificationsService.sendNotification(sendNotificationDto);
@@ -57,6 +68,10 @@ export class NotificationsController {
   /**
    * Получить настройки уведомлений пользователя.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Получить настройки уведомлений" })
+  @ApiResponse({ status: 200, description: "Список настроек" })
+  @ApiResponse({ status: 401, description: "Не авторизован" })
   @Get("settings")
   @UseGuards(AuthGuard("jwt"))
   getSettings(@Request() req: AuthRequest) {
@@ -66,6 +81,10 @@ export class NotificationsController {
   /**
    * Создать настройку уведомлений.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Создать настройку уведомлений" })
+  @ApiResponse({ status: 201, description: "Настройка создана" })
+  @ApiResponse({ status: 401, description: "Не авторизован" })
   @Post("settings")
   @UseGuards(AuthGuard("jwt"))
   createSettings(
@@ -78,6 +97,11 @@ export class NotificationsController {
   /**
    * Обновить настройку уведомлений.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Обновить настройку уведомлений" })
+  @ApiParam({ name: "id", type: Number, description: "ID настройки" })
+  @ApiResponse({ status: 200, description: "Настройка обновлена" })
+  @ApiResponse({ status: 404, description: "Настройка не найдена" })
   @Put("settings/:id")
   @UseGuards(AuthGuard("jwt"))
   updateSettings(
@@ -91,6 +115,11 @@ export class NotificationsController {
   /**
    * Удалить настройку уведомлений.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Удалить настройку уведомлений" })
+  @ApiParam({ name: "id", type: Number, description: "ID настройки" })
+  @ApiResponse({ status: 200, description: "Настройка удалена" })
+  @ApiResponse({ status: 404, description: "Настройка не найдена" })
   @Delete("settings/:id")
   @UseGuards(AuthGuard("jwt"))
   deleteSettings(@Request() req: AuthRequest, @Param("id") id: number) {
@@ -100,6 +129,16 @@ export class NotificationsController {
   /**
    * Получить исторические цены актива.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Получить историю цен актива" })
+  @ApiParam({ name: "id", type: Number, description: "ID актива" })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    type: Number,
+    description: "Лимит записей (по умолчанию 100)",
+  })
+  @ApiResponse({ status: 200, description: "История цен" })
   @Get("assets/:id/history")
   @UseGuards(AuthGuard("jwt"))
   getAssetHistory(
@@ -115,6 +154,9 @@ export class NotificationsController {
   /**
    * Сгенерировать отчет.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Сгенерировать отчёт по портфелю" })
+  @ApiResponse({ status: 201, description: "Отчёт сгенерирован" })
   @Post("reports/generate")
   @UseGuards(AuthGuard("jwt"))
   generateReport(@Request() req: AuthRequest, @Body() dto: GenerateReportDto) {
@@ -124,6 +166,9 @@ export class NotificationsController {
   /**
    * Ручной запуск обновления активов и уведомлений.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Ручной запуск обновления активов и уведомлений" })
+  @ApiResponse({ status: 201, description: "Обновление запущено" })
   @Post("assets/update")
   @UseGuards(AuthGuard("jwt"))
   triggerAssetUpdatesAndNotifications() {
@@ -133,6 +178,15 @@ export class NotificationsController {
   /**
    * Получить логи уведомлений.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Получить логи уведомлений" })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    type: Number,
+    description: "Лимит записей (по умолчанию 50)",
+  })
+  @ApiResponse({ status: 200, description: "Логи уведомлений" })
   @Get("logs")
   @UseGuards(AuthGuard("jwt"))
   getLogs(@Request() req: AuthRequest, @Query("limit") limit?: number) {
@@ -145,6 +199,9 @@ export class NotificationsController {
   /**
    * Очистить дубликаты настроек.
    */
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Очистить дубликаты настроек" })
+  @ApiResponse({ status: 201, description: "Дубликаты удалены" })
   @Post("settings/cleanup")
   @UseGuards(AuthGuard("jwt"))
   cleanupSettings(@Request() req: AuthRequest) {

@@ -6,6 +6,7 @@
  * Роль назначается автоматически на уровне сервиса (UserRole.USER).
  */
 
+import { ApiProperty } from "@nestjs/swagger";
 import { IsEmail, IsString, IsNotEmpty, MinLength } from "class-validator";
 
 /**
@@ -22,6 +23,10 @@ export class RegisterDto {
    * Должен быть валидным email адресом.
    * @IsEmail() проверяет формат email.
    */
+  @ApiProperty({
+    description: "Email пользователя",
+    example: "user@example.com",
+  })
   @IsEmail()
   email!: string;
 
@@ -31,6 +36,11 @@ export class RegisterDto {
    * Должен быть строкой не короче 6 символов.
    * @IsString(), @IsNotEmpty(), @MinLength(6) обеспечивают требования к паролю.
    */
+  @ApiProperty({
+    description: "Пароль (минимум 6 символов)",
+    example: "password123",
+    minLength: 6,
+  })
   @IsString()
   @IsNotEmpty()
   @MinLength(6)

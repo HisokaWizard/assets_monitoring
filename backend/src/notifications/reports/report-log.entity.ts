@@ -12,6 +12,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from "typeorm";
+import { ApiProperty, ApiHideProperty } from "@nestjs/swagger";
 import { User } from "../../auth/user.entity";
 
 /**
@@ -28,18 +29,21 @@ export class ReportLog {
   /**
    * Уникальный идентификатор записи.
    */
+  @ApiProperty({ description: "Уникальный идентификатор записи", example: 1 })
   @PrimaryGeneratedColumn()
   id!: number;
 
   /**
    * ID пользователя, которому был отправлен отчёт.
    */
+  @ApiProperty({ description: "ID пользователя", example: 1 })
   @Column()
   userId!: number;
 
   /**
    * Связь с пользователем.
    */
+  @ApiHideProperty()
   @ManyToOne(() => User)
   @JoinColumn({ name: "userId" })
   user!: User;
@@ -47,18 +51,33 @@ export class ReportLog {
   /**
    * Период отчёта: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'.
    */
+  @ApiProperty({
+    description: "Период отчёта",
+    enum: ["daily", "weekly", "monthly", "quarterly", "yearly"],
+    example: "weekly",
+  })
   @Column()
   period!: string;
 
   /**
    * Время отправки отчёта.
    */
+  @ApiProperty({
+    description: "Время отправки отчёта",
+    example: "2026-03-10T12:00:00.000Z",
+  })
   @Column({ type: "datetime" })
   sentAt!: Date;
 
   /**
    * Статус отправки: 'sent' | 'failed'.
    */
+  @ApiProperty({
+    description: "Статус отправки",
+    enum: ["sent", "failed"],
+    default: "sent",
+    example: "sent",
+  })
   @Column({ default: "sent" })
   status!: string;
 }

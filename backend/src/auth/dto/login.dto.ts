@@ -5,6 +5,7 @@
  * Используется для валидации данных при попытке входа в систему.
  */
 
+import { ApiProperty } from "@nestjs/swagger";
 import { IsEmail, IsString, IsNotEmpty } from "class-validator";
 
 /**
@@ -19,6 +20,10 @@ export class LoginDto {
    *
    * Должен быть валидным email адресом.
    */
+  @ApiProperty({
+    description: "Email пользователя",
+    example: "user@example.com",
+  })
   @IsEmail()
   email!: string;
 
@@ -27,6 +32,7 @@ export class LoginDto {
    *
    * Должен быть непустой строкой.
    */
+  @ApiProperty({ description: "Пароль пользователя", example: "password123" })
   @IsString()
   @IsNotEmpty()
   password!: string;

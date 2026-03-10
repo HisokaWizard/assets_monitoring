@@ -14,6 +14,12 @@ import {
   Request,
   Req,
 } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from "@nestjs/swagger";
 import { AuthGuard } from "@nestjs/passport";
 import { UserSettingsService } from "./user-settings.service";
 import { CreateUserSettingsDto, UpdateUserSettingsDto } from "./core/dto";
@@ -30,6 +36,8 @@ export interface AuthenticatedRequest extends Request {
  * Все маршруты требуют аутентификации.
  * @Controller('user-settings') создает префикс '/user-settings'.
  */
+@ApiTags("user-settings")
+@ApiBearerAuth()
 @Controller("user-settings")
 @UseGuards(AuthGuard("jwt"))
 export class UserSettingsController {
@@ -41,6 +49,13 @@ export class UserSettingsController {
    * @param req - HTTP запрос с пользователем из JWT токена
    * @returns Настройки пользователя или null
    */
+  @ApiOperation({ summary: "Получить настройки API-ключей" })
+  @ApiResponse({
+    status: 200,
+    description: "Настройки пользователя",
+    type: UserSettings,
+  })
+  @ApiResponse({ status: 401, description: "Не авторизован" })
   @Get()
   async getSettings(
     @Request() req: AuthenticatedRequest,
@@ -55,6 +70,13 @@ export class UserSettingsController {
    * @param dto - DTO с API-ключами
    * @returns Созданные настройки
    */
+  @ApiOperation({ summary: "Создать настройки API-ключей" })
+  @ApiResponse({
+    status: 201,
+    description: "Настройки созданы",
+    type: UserSettings,
+  })
+  @ApiResponse({ status: 400, description: "Невалидные данные" })
   @Post()
   async createSettings(
     @Request() req: AuthenticatedRequest,
@@ -70,6 +92,13 @@ export class UserSettingsController {
    * @param dto - DTO с API-ключами для обновления
    * @returns Обновленные настройки
    */
+  @ApiOperation({ summary: "Обновить настройки API-ключей" })
+  @ApiResponse({
+    status: 200,
+    description: "Настройки обновлены",
+    type: UserSettings,
+  })
+  @ApiResponse({ status: 404, description: "Настройки не найдены" })
   @Patch()
   async updateSettings(
     @Request() req: AuthenticatedRequest,
