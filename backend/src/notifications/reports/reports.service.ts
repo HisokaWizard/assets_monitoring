@@ -11,13 +11,15 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { NotificationLog } from "../core/entities/notification-log.entity";
 import { ReportLog } from "./report-log.entity";
 import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
 import { HistoricalPrice } from "../../assets/historical-price.entity";
 import { EmailService } from "../email/email.service";
+import { NotificationLogRepository } from "../core/notification-log.repository";
+import { ReportLogRepository } from "./report-log.repository";
+import { AssetRepository } from "../../assets/asset.repository";
+import { HistoricalPriceRepository } from "../../assets/historical-price.repository";
 
 /**
  * Данные одного актива для отчёта.
@@ -80,14 +82,10 @@ export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
   constructor(
-    @InjectRepository(NotificationLog)
-    private readonly logRepository: Repository<NotificationLog>,
-    @InjectRepository(ReportLog)
-    private readonly reportLogRepository: Repository<ReportLog>,
-    @InjectRepository(Asset)
-    private readonly assetsRepository: Repository<Asset>,
-    @InjectRepository(HistoricalPrice)
-    private readonly historicalPriceRepository: Repository<HistoricalPrice>,
+    private readonly logRepository: NotificationLogRepository,
+    private readonly reportLogRepository: ReportLogRepository,
+    private readonly assetRepository: AssetRepository,
+    private readonly historicalPriceRepository: HistoricalPriceRepository,
     private readonly emailService: EmailService,
   ) {}
 
@@ -114,7 +112,7 @@ export class ReportsService {
   async generatePeriodicReports(period: string): Promise<void> {
     this.logger.log(`Generating ${period} reports`);
 
-    const userIds = await this.assetsRepository
+    const userIds = await this.assetRepository
       .createQueryBuilder("asset")
       .select("DISTINCT asset.userId", "userId")
       .getRawMany();
@@ -170,7 +168,7 @@ export class ReportsService {
       return;
     }
 
-    const assets = await this.assetsRepository.find({
+    const assets = await this.assetRepository.find({
       where: { userId },
       relations: ["user"],
     });
@@ -218,7 +216,7 @@ export class ReportsService {
     }
 
     // Сохраняем обновленные снапшоты активов
-    await this.assetsRepository.save(assets);
+    await this.assetRepository.saveMany(assets);
 
     await this.sendReportEmail(user, period, reportItems);
   }
@@ -251,7 +249,7 @@ export class ReportsService {
     );
 
     // Логируем в NotificationLog (общий аудит-лог)
-    await this.logRepository.save({
+    await this.logRepository.saveLog({
       userId: user.id,
       type: "report",
       subject,
@@ -264,7 +262,7 @@ export class ReportsService {
       this.logger.log(`Report sent to user ${user.id}`);
       // sub_task_3: Сохраняем в ReportLog только при успехе
       // Это позволяет повторить отправку если письмо не дошло
-      await this.reportLogRepository.save({
+      await this.reportLogRepository.saveLog({
         userId: user.id,
         period,
         sentAt: new Date(),
@@ -339,10 +337,10 @@ export class ReportsService {
     userId: number,
     period: string,
   ): Promise<boolean> {
-    const lastReport = await this.reportLogRepository.findOne({
-      where: { userId, period },
-      order: { sentAt: "DESC" },
-    });
+    const lastReport = await this.reportLogRepository.findLastByUserIdAndPeriod(
+      userId,
+      period,
+    );
 
     if (!lastReport) return true;
 

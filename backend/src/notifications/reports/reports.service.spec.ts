@@ -6,21 +6,24 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository, DeepPartial } from "typeorm";
+import { DeepPartial } from "typeorm";
 import { ReportsService } from "./reports.service";
 import { ReportLog } from "./report-log.entity";
 import { NotificationLog } from "../core/entities/notification-log.entity";
 import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
 import { HistoricalPrice } from "../../assets/historical-price.entity";
 import { EmailService } from "../email/email.service";
+import { NotificationLogRepository } from "../core/notification-log.repository";
+import { ReportLogRepository } from "./report-log.repository";
+import { AssetRepository } from "../../assets/asset.repository";
+import { HistoricalPriceRepository } from "../../assets/historical-price.repository";
 
 describe("ReportsService", () => {
   let service: ReportsService;
-  let logRepository: jest.Mocked<Repository<NotificationLog>>;
-  let reportLogRepository: jest.Mocked<Repository<ReportLog>>;
-  let assetsRepository: jest.Mocked<Repository<Asset>>;
-  let historicalPriceRepository: jest.Mocked<Repository<HistoricalPrice>>;
+  let logRepository: jest.Mocked<NotificationLogRepository>;
+  let reportLogRepository: jest.Mocked<ReportLogRepository>;
+  let assetsRepository: any;
+  let historicalPriceRepository: jest.Mocked<HistoricalPriceRepository>;
   let emailService: jest.Mocked<EmailService>;
 
   beforeEach(async () => {
@@ -28,15 +31,16 @@ describe("ReportsService", () => {
       createQueryBuilder: jest.fn(),
       find: jest.fn(),
       save: jest.fn(),
+      saveMany: jest.fn(),
     };
 
     const mockLogRepository = {
-      save: jest.fn(),
+      saveLog: jest.fn(),
     };
 
     const mockReportLogRepository = {
-      findOne: jest.fn(),
-      save: jest.fn(),
+      findLastByUserIdAndPeriod: jest.fn(),
+      saveLog: jest.fn(),
     };
 
     const mockHistoricalPriceRepository = {
@@ -51,19 +55,19 @@ describe("ReportsService", () => {
       providers: [
         ReportsService,
         {
-          provide: getRepositoryToken(NotificationLog),
+          provide: NotificationLogRepository,
           useValue: mockLogRepository,
         },
         {
-          provide: getRepositoryToken(ReportLog),
+          provide: ReportLogRepository,
           useValue: mockReportLogRepository,
         },
         {
-          provide: getRepositoryToken(Asset),
+          provide: AssetRepository,
           useValue: mockAssetRepository,
         },
         {
-          provide: getRepositoryToken(HistoricalPrice),
+          provide: HistoricalPriceRepository,
           useValue: mockHistoricalPriceRepository,
         },
         {
@@ -74,10 +78,10 @@ describe("ReportsService", () => {
     }).compile();
 
     service = module.get<ReportsService>(ReportsService);
-    logRepository = module.get(getRepositoryToken(NotificationLog));
-    reportLogRepository = module.get(getRepositoryToken(ReportLog));
-    assetsRepository = module.get(getRepositoryToken(Asset));
-    historicalPriceRepository = module.get(getRepositoryToken(HistoricalPrice));
+    logRepository = module.get(NotificationLogRepository);
+    reportLogRepository = module.get(ReportLogRepository);
+    assetsRepository = module.get(AssetRepository);
+    historicalPriceRepository = module.get(HistoricalPriceRepository);
     emailService = module.get(EmailService);
   });
 
@@ -129,9 +133,9 @@ describe("ReportsService", () => {
         user: { id: 1, email: "user@test.com" },
       });
       assetsRepository.find.mockResolvedValue([asset]);
-      reportLogRepository.findOne.mockResolvedValue(null); // canSendReport = true (первый отчёт)
-      reportLogRepository.save.mockResolvedValue({} as any);
-      logRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null); // canSendReport = true (первый отчёт)
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       assetsRepository.save.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
     };
@@ -164,7 +168,7 @@ describe("ReportsService", () => {
         assetsRepository.createQueryBuilder.mockClear();
         assetsRepository.find.mockClear();
         emailService.sendEmail.mockClear();
-        reportLogRepository.findOne.mockResolvedValue(null);
+        reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
 
         const qb = {
           innerJoin: jest.fn().mockReturnThis(),
@@ -238,7 +242,7 @@ describe("ReportsService", () => {
         user: { id: 1, email: "user@test.com" },
       });
       assetsRepository.find.mockResolvedValue([asset]);
-      logRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       assetsRepository.save.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
     };
@@ -246,8 +250,8 @@ describe("ReportsService", () => {
     it("TC-1: should send when no ReportLog exists (first report)", async () => {
       mockHasHistory();
       mockUserWithAsset();
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
 
       await service.generatePeriodicReports("daily");
 
@@ -259,7 +263,7 @@ describe("ReportsService", () => {
       mockUserWithAsset();
 
       const recentlySent = new Date(Date.now() - 12 * 60 * 60 * 1000); // 12h ago
-      reportLogRepository.findOne.mockResolvedValue({
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue({
         id: 1,
         userId: 1,
         period: "daily",
@@ -275,10 +279,10 @@ describe("ReportsService", () => {
     it("TC-3: should allow when 24h+ passed since last daily report", async () => {
       mockHasHistory();
       mockUserWithAsset();
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
 
       const longAgo = new Date(Date.now() - 25 * 60 * 60 * 1000); // 25h ago
-      reportLogRepository.findOne.mockResolvedValue({
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue({
         id: 1,
         userId: 1,
         period: "daily",
@@ -296,7 +300,7 @@ describe("ReportsService", () => {
       mockUserWithAsset();
 
       const almostWeek = new Date(Date.now() - (7 * 24 - 1) * 60 * 60 * 1000); // 6d23h ago
-      reportLogRepository.findOne.mockResolvedValue({
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue({
         id: 1,
         userId: 1,
         period: "weekly",
@@ -312,13 +316,13 @@ describe("ReportsService", () => {
     it("TC-5: should save ReportLog after successful send", async () => {
       mockHasHistory();
       mockUserWithAsset();
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
 
       await service.generatePeriodicReports("daily");
 
-      expect(reportLogRepository.save).toHaveBeenCalledWith(
+      expect(reportLogRepository.saveLog).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 1, period: "daily", status: "sent" }),
       );
     });
@@ -326,13 +330,13 @@ describe("ReportsService", () => {
     it("TC-6: should NOT save ReportLog when email send fails", async () => {
       mockHasHistory();
       mockUserWithAsset();
-      reportLogRepository.findOne.mockResolvedValue(null);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
       emailService.sendEmail.mockResolvedValue(false);
 
       await service.generatePeriodicReports("daily");
 
-      // reportLogRepository.save не должен вызываться со status 'sent'
-      const savedWithSent = reportLogRepository.save.mock.calls.find(
+      // reportLogRepository.saveLog не должен вызываться со status 'sent'
+      const savedWithSent = reportLogRepository.saveLog.mock.calls.find(
         (call) => call[0]?.status === "sent",
       );
       expect(savedWithSent).toBeUndefined();
@@ -354,9 +358,9 @@ describe("ReportsService", () => {
     };
 
     beforeEach(() => {
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
-      logRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       assetsRepository.save.mockResolvedValue({} as any);
     });
 
@@ -527,7 +531,7 @@ describe("ReportsService", () => {
         historicalPriceRepository.createQueryBuilder.mockClear();
         assetsRepository.createQueryBuilder.mockClear();
         emailService.sendEmail.mockClear();
-        reportLogRepository.findOne.mockResolvedValue(null);
+        reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
 
         const qb = {
           innerJoin: jest.fn().mockReturnThis(),
@@ -603,10 +607,10 @@ describe("ReportsService", () => {
         user: { id: 1, email: "user1@example.com" },
       });
       assetsRepository.find.mockResolvedValue([asset]);
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       assetsRepository.save.mockResolvedValue({} as any);
 
       await service.generatePeriodicReports("daily");
@@ -635,10 +639,10 @@ describe("ReportsService", () => {
         user: { id: 1, email: "user1@example.com" },
       });
       assetsRepository.find.mockResolvedValue([asset]);
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       assetsRepository.save.mockResolvedValue({} as any);
 
       await service.generatePeriodicReports("daily");
@@ -671,16 +675,16 @@ describe("ReportsService", () => {
         user: { id: 1, email: "user1@example.com" },
       });
       assetsRepository.find.mockResolvedValue([asset]);
-      reportLogRepository.findOne.mockResolvedValue(null);
-      reportLogRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.findLastByUserIdAndPeriod.mockResolvedValue(null);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      assetsRepository.save.mockResolvedValue({} as any);
+      reportLogRepository.saveLog.mockResolvedValue({} as any);
+      assetsRepository.saveMany.mockResolvedValue([] as any);
 
       await service.generatePeriodicReports("daily");
 
-      expect(assetsRepository.save).toHaveBeenCalled();
-      const savedAssets = assetsRepository.save.mock
+      expect(assetsRepository.saveMany).toHaveBeenCalled();
+      const savedAssets = assetsRepository.saveMany.mock
         .calls[0][0] as DeepPartial<Asset>[];
       expect(savedAssets[0]!.dailyPrice).toBe(50000);
     });

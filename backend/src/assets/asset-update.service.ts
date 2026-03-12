@@ -6,10 +6,8 @@
  * Сервис использует HttpService для API вызовов и @nestjs/schedule для джоб.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, forwardRef } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { firstValueFrom } from "rxjs";
 import { Asset, CryptoAsset, NFTAsset } from "./asset.entity";
 import { HistoricalPrice } from "./historical-price.entity";
@@ -20,6 +18,11 @@ import {
   CoinMarketCapResponse,
   OpenSeaResponse,
 } from "./interfaces/api-responses.interface";
+import { AssetRepository } from "./asset.repository";
+import { HistoricalPriceRepository } from "./historical-price.repository";
+import { UserRepository } from "../auth/user.repository";
+import { NotificationSettingsRepository } from "../notifications/core/notification-settings.repository";
+import { UserSettingsModule } from "../user-settings/user-settings.module";
 
 /**
  * Сервис для обновления активов.
@@ -33,14 +36,10 @@ export class AssetUpdateService {
 
   constructor(
     private readonly httpService: HttpService,
-    @InjectRepository(Asset)
-    private readonly assetsRepository: Repository<Asset>,
-    @InjectRepository(HistoricalPrice)
-    private readonly historicalPriceRepository: Repository<HistoricalPrice>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(NotificationSettings)
-    private readonly notificationSettingsRepository: Repository<NotificationSettings>,
+    private readonly assetRepository: AssetRepository,
+    private readonly historicalPriceRepository: HistoricalPriceRepository,
+    private readonly userRepository: UserRepository,
+    private readonly notificationSettingsRepository: NotificationSettingsRepository,
     private readonly userSettingsService: UserSettingsService,
   ) {}
 
@@ -102,7 +101,7 @@ export class AssetUpdateService {
 
       if (shouldUpdate) {
         // Получить активы пользователя
-        const assets = await this.assetsRepository.find({ where: { userId } });
+        const assets = await this.assetRepository.findByUserId(userId);
 
         for (const asset of assets) {
           try {
@@ -151,7 +150,7 @@ export class AssetUpdateService {
       return updatedAssetIds;
     }
 
-    const assets = await this.assetsRepository.find({ where: { userId } });
+    const assets = await this.assetRepository.findByUserId(userId);
 
     for (const asset of assets) {
       try {
@@ -198,7 +197,7 @@ export class AssetUpdateService {
       await this.saveHistoricalPrice(asset.id, newPrice, "CoinMarketCap");
       // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
-      await this.assetsRepository.save(asset);
+      await this.assetRepository.saveAsset(asset);
     }
   }
 
@@ -244,7 +243,7 @@ export class AssetUpdateService {
       await this.saveHistoricalPrice(asset.id, priceForHistory, "OpenSea");
       // Рассчитать изменения по историческим данным
       await this.calculateChanges(asset);
-      await this.assetsRepository.save(asset);
+      await this.assetRepository.saveAsset(asset);
     }
   }
 
@@ -371,12 +370,11 @@ export class AssetUpdateService {
       ? asset.middlePrice
       : ((asset as NFTAsset).middlePriceUsd ?? asset.middlePrice);
 
-    // Получить историю для актива (последние 400 записей — достаточно для года)
-    const history = await this.historicalPriceRepository.find({
-      where: { assetId: asset.id },
-      order: { timestamp: "DESC" },
-      take: 400,
-    });
+    // Get history for asset (last 400 records - enough for a year)
+    const history = await this.historicalPriceRepository.findByAssetIdDesc(
+      asset.id,
+      400,
+    );
 
     const now = Date.now();
 
@@ -442,7 +440,7 @@ export class AssetUpdateService {
   }
 
   /**
-   * Сохранить историческую цену.
+   * Save historical price.
    */
   private async saveHistoricalPrice(
     assetId: number,
@@ -450,13 +448,12 @@ export class AssetUpdateService {
     source: string,
   ): Promise<void> {
     try {
-      const historicalPrice = this.historicalPriceRepository.create({
+      await this.historicalPriceRepository.savePrice({
         assetId,
         price,
         timestamp: new Date(),
         source,
       });
-      await this.historicalPriceRepository.save(historicalPrice);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";

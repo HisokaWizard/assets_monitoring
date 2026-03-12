@@ -5,11 +5,12 @@
  * controller, service и entity.
  */
 
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserSettingsController } from './user-settings.controller';
-import { UserSettingsService } from './user-settings.service';
-import { UserSettings } from './core/entities/user-settings.entity';
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { UserSettingsController } from "./user-settings.controller";
+import { UserSettingsService } from "./user-settings.service";
+import { UserSettingsRepository } from "./core/user-settings.repository";
+import { UserSettings } from "./core/entities/user-settings.entity";
 
 /**
  * Модуль настроек пользователя.
@@ -21,11 +22,9 @@ import { UserSettings } from './core/entities/user-settings.entity';
  * - exports: экспортируемые провайдеры (если нужны в других модулях)
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([UserSettings]),
-  ],
+  imports: [TypeOrmModule.forFeature([UserSettings])],
   controllers: [UserSettingsController],
-  providers: [UserSettingsService],
-  exports: [UserSettingsService],
+  providers: [UserSettingsService, UserSettingsRepository],
+  exports: [UserSettingsService, UserSettingsRepository],
 })
 export class UserSettingsModule {}

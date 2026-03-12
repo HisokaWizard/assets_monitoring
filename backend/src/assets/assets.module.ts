@@ -10,18 +10,22 @@
  * @Module декоратор определяет метаданные модуля.
  */
 
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios';
-import { AssetsService } from './assets.service';
-import { AssetsController } from './assets.controller';
-import { AssetUpdateService } from './asset-update.service';
-import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
-import { HistoricalPrice } from './historical-price.entity';
-import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
-import { UserSettings } from '../user-settings/core/entities/user-settings.entity';
-import { UserSettingsModule } from '../user-settings/user-settings.module';
+import { Module, forwardRef } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { HttpModule } from "@nestjs/axios";
+import { AssetsService } from "./assets.service";
+import { AssetsController } from "./assets.controller";
+import { AssetUpdateService } from "./asset-update.service";
+import { AssetRepository } from "./asset.repository";
+import { HistoricalPriceRepository } from "./historical-price.repository";
+import { Asset, CryptoAsset, NFTAsset } from "./asset.entity";
+import { HistoricalPrice } from "./historical-price.entity";
+import { User } from "../auth/user.entity";
+import { NotificationSettings } from "../notifications/core/entities/notification-settings.entity";
+import { UserSettings } from "../user-settings/core/entities/user-settings.entity";
+import { UserSettingsModule } from "../user-settings/user-settings.module";
+import { AuthModule } from "../auth/auth.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 /**
  * Модуль активов.
@@ -36,12 +40,27 @@ import { UserSettingsModule } from '../user-settings/user-settings.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Asset, CryptoAsset, NFTAsset, HistoricalPrice, User, NotificationSettings, UserSettings]),
+    TypeOrmModule.forFeature([
+      Asset,
+      CryptoAsset,
+      NFTAsset,
+      HistoricalPrice,
+      User,
+      NotificationSettings,
+      UserSettings,
+    ]),
     HttpModule,
     UserSettingsModule,
+    forwardRef(() => AuthModule),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [AssetsController],
-  providers: [AssetsService, AssetUpdateService],
-  exports: [AssetUpdateService],
+  providers: [
+    AssetsService,
+    AssetUpdateService,
+    AssetRepository,
+    HistoricalPriceRepository,
+  ],
+  exports: [AssetUpdateService, AssetRepository, HistoricalPriceRepository],
 })
 export class AssetsModule {}

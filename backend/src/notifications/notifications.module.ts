@@ -8,26 +8,29 @@
  * и управлять зависимостями между компонентами.
  */
 
-import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ScheduleModule } from '@nestjs/schedule';
-import { HttpModule } from '@nestjs/axios';
-import { AssetsModule } from '../assets/assets.module';
-import { AuthModule } from '../auth/auth.module';
-import { NotificationsService } from './notifications.service';
-import { NotificationsController } from './notifications.controller';
-import { NotificationService } from './notification.service';
-import { EmailService } from './email/email.service';
-import { SchedulerService } from './scheduler/scheduler.service';
-import { NotificationSettings } from './core/entities/notification-settings.entity';
-import { NotificationLog } from './core/entities/notification-log.entity';
-import { HistoricalPrice } from '../assets/historical-price.entity';
-import { Asset, CryptoAsset, NFTAsset } from '../assets/asset.entity';
-import { User } from '../auth/user.entity';
-import { EmailModule } from './email/email.module';
-import { AlertsModule } from './alerts/alerts.module';
-import { AlertsService } from './alerts/alerts.service';
-import { ReportsModule } from './reports/reports.module';
+import { Module, forwardRef } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { ScheduleModule } from "@nestjs/schedule";
+import { HttpModule } from "@nestjs/axios";
+import { AssetsModule } from "../assets/assets.module";
+import { AuthModule } from "../auth/auth.module";
+import { NotificationsService } from "./notifications.service";
+import { NotificationsController } from "./notifications.controller";
+import { NotificationService } from "./notification.service";
+import { EmailService } from "./email/email.service";
+import { SchedulerService } from "./scheduler/scheduler.service";
+import { NotificationSettings } from "./core/entities/notification-settings.entity";
+import { NotificationLog } from "./core/entities/notification-log.entity";
+import { HistoricalPrice } from "../assets/historical-price.entity";
+import { Asset, CryptoAsset, NFTAsset } from "../assets/asset.entity";
+import { User } from "../auth/user.entity";
+import { EmailModule } from "./email/email.module";
+import { AlertsModule } from "./alerts/alerts.module";
+import { AlertsService } from "./alerts/alerts.service";
+import { ReportsModule } from "./reports/reports.module";
+import { NotificationSettingsRepository } from "./core/notification-settings.repository";
+import { NotificationLogRepository } from "./core/notification-log.repository";
+import { ReportLogRepository } from "./reports/report-log.repository";
 
 /**
  * Модуль уведомлений.
@@ -41,7 +44,15 @@ import { ReportsModule } from './reports/reports.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationSettings, NotificationLog, HistoricalPrice, Asset, CryptoAsset, NFTAsset, User]),
+    TypeOrmModule.forFeature([
+      NotificationSettings,
+      NotificationLog,
+      HistoricalPrice,
+      Asset,
+      CryptoAsset,
+      NFTAsset,
+      User,
+    ]),
     ScheduleModule.forRoot(),
     HttpModule,
     forwardRef(() => AssetsModule),
@@ -51,7 +62,16 @@ import { ReportsModule } from './reports/reports.module';
     ReportsModule,
   ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationService, EmailService, AlertsService, SchedulerService],
+  providers: [
+    NotificationsService,
+    NotificationService,
+    EmailService,
+    AlertsService,
+    SchedulerService,
+    NotificationSettingsRepository,
+    NotificationLogRepository,
+    ReportLogRepository,
+  ],
   exports: [NotificationService, EmailService, AlertsService, SchedulerService],
 })
 export class NotificationsModule {}

@@ -6,16 +6,18 @@
  * и унифицированной отправки уведомлений.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationSettings } from './core/entities/notification-settings.entity';
-import { NotificationLog } from './core/entities/notification-log.entity';
-import { Asset, CryptoAsset, NFTAsset } from '../assets/asset.entity';
-import { User } from '../auth/user.entity';
-import { EmailService } from './email/email.service';
-import { AlertsService } from './alerts/alerts.service';
-import { ReportsService } from './reports/reports.service';
+import { Injectable, Logger, forwardRef } from "@nestjs/common";
+import { NotificationSettings } from "./core/entities/notification-settings.entity";
+import { NotificationLog } from "./core/entities/notification-log.entity";
+import { Asset, CryptoAsset, NFTAsset } from "../assets/asset.entity";
+import { User } from "../auth/user.entity";
+import { EmailService } from "./email/email.service";
+import { AlertsService } from "./alerts/alerts.service";
+import { ReportsService } from "./reports/reports.service";
+import { NotificationSettingsRepository } from "./core/notification-settings.repository";
+import { NotificationLogRepository } from "./core/notification-log.repository";
+import { AssetRepository } from "../assets/asset.repository";
+import { UserRepository } from "../auth/user.repository";
 
 /**
  * Сервис уведомлений.
@@ -30,14 +32,10 @@ export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(
-    @InjectRepository(NotificationSettings)
-    private readonly settingsRepository: Repository<NotificationSettings>,
-    @InjectRepository(NotificationLog)
-    private readonly logRepository: Repository<NotificationLog>,
-    @InjectRepository(Asset)
-    private readonly assetsRepository: Repository<Asset>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly settingsRepository: NotificationSettingsRepository,
+    private readonly logRepository: NotificationLogRepository,
+    private readonly assetRepository: AssetRepository,
+    private readonly userRepository: UserRepository,
     private readonly emailService: EmailService,
     private readonly alertsService: AlertsService,
     private readonly reportsService: ReportsService,
@@ -51,7 +49,10 @@ export class NotificationService {
    * @param userId Опциональный ID пользователя для фильтрации
    * @param assetIds Опциональный массив ID активов для проверки
    */
-  async checkAlertsAfterUpdate(userId?: number, assetIds?: number[]): Promise<void> {
+  async checkAlertsAfterUpdate(
+    userId?: number,
+    assetIds?: number[],
+  ): Promise<void> {
     return this.alertsService.checkAlertsAfterUpdate(userId, assetIds);
   }
 
@@ -78,11 +79,11 @@ export class NotificationService {
     let message: string;
 
     switch (type) {
-      case 'alert':
+      case "alert":
         subject = `Price Alert for Assets`;
         message = this.buildAlertMessage(data.alerts);
         break;
-      case 'report':
+      case "report":
         subject = `Portfolio ${data.period.charAt(0).toUpperCase() + data.period.slice(1)} Report`;
         message = this.buildReportMessage(data.reportData, data.period);
         break;
@@ -91,22 +92,28 @@ export class NotificationService {
         return;
     }
 
-    const success = await this.emailService.sendEmail(user.email, subject, message);
+    const success = await this.emailService.sendEmail(
+      user.email,
+      subject,
+      message,
+    );
 
     // Логируем отправку
-    await this.logRepository.save({
+    await this.logRepository.saveLog({
       userId: user.id,
       type,
       subject,
       message,
       sentAt: new Date(),
-      status: success ? 'sent' : 'failed',
+      status: success ? "sent" : "failed",
     });
 
     if (success) {
       this.logger.log(`${type} notification sent to user ${user.id}`);
     } else {
-      this.logger.error(`Failed to send ${type} notification to user ${user.id}`);
+      this.logger.error(
+        `Failed to send ${type} notification to user ${user.id}`,
+      );
     }
   }
 
@@ -117,15 +124,19 @@ export class NotificationService {
    * @returns Текст сообщения
    */
   private buildAlertMessage(
-    alertsTriggered: Array<{ asset: string; change: string; currentPrice: number }>,
+    alertsTriggered: Array<{
+      asset: string;
+      change: string;
+      currentPrice: number;
+    }>,
   ): string {
-    let message = 'Sharp price changes detected:\n\n';
+    let message = "Sharp price changes detected:\n\n";
 
     for (const alert of alertsTriggered) {
       message += `${alert.asset}: ${alert.change}% change, Current price: $${alert.currentPrice}\n`;
     }
 
-    message += '\nPlease check your portfolio for more details.';
+    message += "\nPlease check your portfolio for more details.";
     return message;
   }
 
@@ -161,10 +172,8 @@ export class NotificationService {
       totalPortfolioValue += item.totalValue;
     }
 
-    message += `Total Portfolio Value: $${totalPortfolioValue.toFixed(
-      2,
-    )}\n\n`;
-    message += 'Please review your investments and consider your strategy.';
+    message += `Total Portfolio Value: $${totalPortfolioValue.toFixed(2)}\n\n`;
+    message += "Please review your investments and consider your strategy.";
 
     return message;
   }

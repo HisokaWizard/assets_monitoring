@@ -11,8 +11,6 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { Asset, CryptoAsset, NFTAsset } from "./asset.entity";
@@ -22,6 +20,7 @@ import { AssetUpdateService } from "./asset-update.service";
 import { UserSettingsService } from "../user-settings/user-settings.service";
 import { User } from "../auth/user.entity";
 import { CoinMarketCapResponse } from "./interfaces/api-responses.interface";
+import { AssetRepository } from "./asset.repository";
 
 /**
  * Сервис для операций с активами.
@@ -37,8 +36,7 @@ export class AssetsService {
   private readonly logger = new Logger(AssetsService.name);
 
   constructor(
-    @InjectRepository(Asset)
-    private assetsRepository: Repository<Asset>,
+    private readonly assetRepository: AssetRepository,
     private readonly httpService: HttpService,
     private readonly assetUpdateService: AssetUpdateService,
     private readonly userSettingsService: UserSettingsService,
@@ -50,7 +48,7 @@ export class AssetsService {
    * @returns Promise с массивом всех активов из базы данных.
    */
   findAll(): Promise<Asset[]> {
-    return this.assetsRepository.find();
+    return this.assetRepository.findAll();
   }
 
   /**
@@ -60,7 +58,7 @@ export class AssetsService {
    * @returns Promise с активом или null, если не найден.
    */
   findOne(id: number): Promise<Asset | null> {
-    return this.assetsRepository.findOneBy({ id });
+    return this.assetRepository.findOneById(id);
   }
 
   /**
@@ -178,7 +176,7 @@ export class AssetsService {
       (asset as NFTAsset).middlePriceUsd = middlePriceUsd;
       (asset as NFTAsset).traitPrice = createAssetDto.traitPrice || 0;
     }
-    return this.assetsRepository.save(asset);
+    return this.assetRepository.saveAsset(asset);
   }
 
   /**
@@ -192,7 +190,7 @@ export class AssetsService {
     id: number,
     updateAssetDto: UpdateAssetDto,
   ): Promise<Asset | null> {
-    await this.assetsRepository.update(id, updateAssetDto);
+    await this.assetRepository.updateById(id, updateAssetDto);
     return this.findOne(id);
   }
 
@@ -203,7 +201,7 @@ export class AssetsService {
    * @returns Promise, который разрешается после удаления.
    */
   async remove(id: number): Promise<void> {
-    await this.assetsRepository.delete(id);
+    await this.assetRepository.deleteById(id);
   }
 
   async getCryptoPrice(
@@ -239,13 +237,14 @@ export class AssetsService {
 
   async refreshAll(userId: number): Promise<Asset[]> {
     await this.assetUpdateService.updateAssetsForUser(userId);
-    return this.assetsRepository.find({ where: { userId } });
+    return this.assetRepository.findByUserId(userId);
   }
 
   async refreshNFTs(userId: number): Promise<Asset[]> {
-    const nftAssets = await this.assetsRepository.find({
-      where: { userId, type: "nft" },
-    });
+    const nftAssets = await this.assetRepository.findByUserIdAndType(
+      userId,
+      "nft",
+    );
 
     // Получить API ключи пользователя
     const userSettingsData = await this.userSettingsService.getUserSettings({
@@ -269,6 +268,6 @@ export class AssetsService {
       }
     }
 
-    return this.assetsRepository.find({ where: { userId, type: "nft" } });
+    return this.assetRepository.findByUserIdAndType(userId, "nft");
   }
 }

@@ -5,24 +5,22 @@
  * Шифрует ключи перед сохранением и дешифрует при чтении.
  */
 
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
-import { promisify } from 'util';
-import { UserSettings } from './core/entities/user-settings.entity';
-import { CreateUserSettingsDto, UpdateUserSettingsDto } from './core/dto';
-import { User } from '../auth/user.entity';
+import { Injectable } from "@nestjs/common";
+import { createCipheriv, createDecipheriv, randomBytes, scrypt } from "crypto";
+import { promisify } from "util";
+import { UserSettings } from "./core/entities/user-settings.entity";
+import { CreateUserSettingsDto, UpdateUserSettingsDto } from "./core/dto";
+import { UserSettingsRepository } from "./core/user-settings.repository";
+import { User } from "../auth/user.entity";
 
 @Injectable()
 export class UserSettingsService {
-  private readonly algorithm = 'aes-256-cbc';
+  private readonly algorithm = "aes-256-cbc";
   private readonly keyLength = 32;
   private readonly ivLength = 16;
 
   constructor(
-    @InjectRepository(UserSettings)
-    private readonly userSettingsRepository: Repository<UserSettings>,
+    private readonly userSettingsRepository: UserSettingsRepository,
   ) {}
 
   /**
@@ -30,9 +28,7 @@ export class UserSettingsService {
    * Дешифрует API-ключи перед возвратом.
    */
   async getUserSettings(user: User): Promise<UserSettings | null> {
-    const settings = await this.userSettingsRepository.findOne({
-      where: { userId: user.id },
-    });
+    const settings = await this.userSettingsRepository.findOneByUserId(user.id);
 
     if (!settings) {
       return null;
@@ -51,24 +47,20 @@ export class UserSettingsService {
     dto: CreateUserSettingsDto,
   ): Promise<UserSettings> {
     // Проверяем, что настроек еще нет
-    const existing = await this.userSettingsRepository.findOne({
-      where: { userId: user.id },
-    });
+    const existing = await this.userSettingsRepository.findOneByUserId(user.id);
 
     if (existing) {
-      throw new Error('User settings already exist. Use update instead.');
+      throw new Error("User settings already exist. Use update instead.");
     }
 
     // Шифруем ключи
     const encryptedDto = await this.encryptDto(dto);
 
-    const settings = this.userSettingsRepository.create({
+    const saved = await this.userSettingsRepository.createAndSave({
       userId: user.id,
       ...encryptedDto,
     });
 
-    const saved = await this.userSettingsRepository.save(settings);
-    
     // Возвращаем с дешифрованными ключами
     return this.decryptSettings(saved);
   }
@@ -81,9 +73,7 @@ export class UserSettingsService {
     user: User,
     dto: UpdateUserSettingsDto,
   ): Promise<UserSettings> {
-    let settings = await this.userSettingsRepository.findOne({
-      where: { userId: user.id },
-    });
+    let settings = await this.userSettingsRepository.findOneByUserId(user.id);
 
     if (!settings) {
       settings = await this.createSettings(user, dto);
@@ -93,14 +83,9 @@ export class UserSettingsService {
     // Шифруем ключи
     const encryptedDto = await this.encryptDto(dto);
 
-    await this.userSettingsRepository.update(
-      { userId: user.id },
-      encryptedDto,
-    );
+    await this.userSettingsRepository.updateByUserId(user.id, encryptedDto);
 
-    const updated = await this.userSettingsRepository.findOne({
-      where: { userId: user.id },
-    });
+    const updated = await this.userSettingsRepository.findOneByUserId(user.id);
 
     // Возвращаем с дешифрованными ключами
     return this.decryptSettings(updated!);
@@ -109,7 +94,9 @@ export class UserSettingsService {
   /**
    * Шифрование DTO.
    */
-  private async encryptDto(dto: CreateUserSettingsDto | UpdateUserSettingsDto): Promise<Partial<UserSettings>> {
+  private async encryptDto(
+    dto: CreateUserSettingsDto | UpdateUserSettingsDto,
+  ): Promise<Partial<UserSettings>> {
     const result: Partial<UserSettings> = {};
 
     if (dto.coinmarketcapApiKey) {
@@ -130,12 +117,12 @@ export class UserSettingsService {
     const key = await this.getEncryptionKey();
     const iv = randomBytes(this.ivLength);
     const cipher = createCipheriv(this.algorithm, key, iv);
-    
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
+
+    let encrypted = cipher.update(text, "utf8", "hex");
+    encrypted += cipher.final("hex");
+
     // Сохраняем IV вместе с зашифрованными данными
-    return iv.toString('hex') + ':' + encrypted;
+    return iv.toString("hex") + ":" + encrypted;
   }
 
   /**
@@ -143,14 +130,14 @@ export class UserSettingsService {
    */
   private async decrypt(encryptedText: string): Promise<string> {
     const key = await this.getEncryptionKey();
-    const [ivHex, encrypted] = encryptedText.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    
+    const [ivHex, encrypted] = encryptedText.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+
     const decipher = createDecipheriv(this.algorithm, key, iv);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
+
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+
     return decrypted;
   }
 
@@ -161,7 +148,9 @@ export class UserSettingsService {
     const decrypted = { ...settings };
 
     if (settings.coinmarketcapApiKey) {
-      decrypted.coinmarketcapApiKey = await this.decrypt(settings.coinmarketcapApiKey);
+      decrypted.coinmarketcapApiKey = await this.decrypt(
+        settings.coinmarketcapApiKey,
+      );
     }
 
     if (settings.openseaApiKey) {
@@ -177,11 +166,15 @@ export class UserSettingsService {
   private async getEncryptionKey(): Promise<Buffer> {
     const password = process.env.API_KEYS_ENCRYPTION_KEY;
     if (!password) {
-      throw new Error('API_KEYS_ENCRYPTION_KEY is not defined');
+      throw new Error("API_KEYS_ENCRYPTION_KEY is not defined");
     }
 
-    const salt = Buffer.from('fixed_salt_for_user_settings', 'utf8');
-    const key = (await promisify(scrypt)(password, salt, this.keyLength)) as Buffer;
+    const salt = Buffer.from("fixed_salt_for_user_settings", "utf8");
+    const key = (await promisify(scrypt)(
+      password,
+      salt,
+      this.keyLength,
+    )) as Buffer;
     return key;
   }
 }

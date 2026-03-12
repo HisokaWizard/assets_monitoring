@@ -10,7 +10,9 @@
  * контроллеры (обработчики HTTP запросов), провайдеры (сервисы, репозитории и т.д.).
  */
 
+import "reflect-metadata";
 import { Module } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { HttpModule } from "@nestjs/axios";
 import { ScheduleModule } from "@nestjs/schedule";
@@ -18,6 +20,9 @@ import { AssetsModule } from "./assets/assets.module";
 import { AuthModule } from "./auth/auth.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { UserSettingsModule } from "./user-settings/user-settings.module";
+import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
+import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 import { Asset, CryptoAsset, NFTAsset } from "./assets/asset.entity";
 import { HistoricalPrice } from "./assets/historical-price.entity";
 import { User } from "./auth/user.entity";
@@ -64,5 +69,41 @@ import { InitialSchema1741500000000 } from "./database/migrations/1741500000000-
     NotificationsModule,
     UserSettingsModule,
   ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
+  ],
 })
 export class AppModule {}
+
+// Expose module metadata for testing purposes
+Reflect.defineMetadata(
+  "metadata",
+  {
+    providers: [
+      {
+        provide: APP_FILTER,
+        useClass: AllExceptionsFilter,
+      },
+      {
+        provide: APP_INTERCEPTOR,
+        useClass: LoggingInterceptor,
+      },
+      {
+        provide: APP_INTERCEPTOR,
+        useClass: TransformInterceptor,
+      },
+    ],
+  },
+  AppModule,
+);

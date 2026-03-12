@@ -15,6 +15,7 @@ import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./jwt.strategy";
 import { User } from "./user.entity";
+import { UserRepository } from "./user.repository";
 
 /**
  * Модуль аутентификации.
@@ -37,7 +38,8 @@ import { User } from "./user.entity";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, UserRepository],
+  exports: [UserRepository],
 })
 export class AuthModule implements OnModuleInit {
   /**

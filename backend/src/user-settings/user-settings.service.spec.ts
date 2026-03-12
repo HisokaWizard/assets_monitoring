@@ -5,18 +5,17 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
 
-import { Repository } from "typeorm";
 import { UserSettingsService } from "./user-settings.service";
 import { UserSettings } from "./core/entities/user-settings.entity";
 import { CreateUserSettingsDto, UpdateUserSettingsDto } from "./core/dto";
+import { UserSettingsRepository } from "./core/user-settings.repository";
 import { User } from "../auth/user.entity";
 import { UserRole } from "../auth/user-role.enum";
 
 describe("UserSettingsService", () => {
   let service: UserSettingsService;
-  let repository: Repository<UserSettings>;
+  let repository: jest.Mocked<UserSettingsRepository>;
 
   const mockUser: User = {
     id: 1,
@@ -29,10 +28,9 @@ describe("UserSettingsService", () => {
   } as User;
 
   const mockRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
+    findOneByUserId: jest.fn(),
+    createAndSave: jest.fn(),
+    updateByUserId: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -43,16 +41,16 @@ describe("UserSettingsService", () => {
       providers: [
         UserSettingsService,
         {
-          provide: getRepositoryToken(UserSettings),
+          provide: UserSettingsRepository,
           useValue: mockRepository,
         },
       ],
     }).compile();
 
     service = module.get<UserSettingsService>(UserSettingsService);
-    repository = module.get<Repository<UserSettings>>(
-      getRepositoryToken(UserSettings),
-    );
+    repository = module.get<UserSettingsRepository>(
+      UserSettingsRepository,
+    ) as jest.Mocked<UserSettingsRepository>;
   });
 
   afterEach(() => {
@@ -61,14 +59,12 @@ describe("UserSettingsService", () => {
 
   describe("getUserSettings", () => {
     it("should return null if settings not found", async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.findOneByUserId.mockResolvedValue(null);
 
       const result = await service.getUserSettings(mockUser);
 
       expect(result).toBeNull();
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { userId: mockUser.id },
-      });
+      expect(mockRepository.findOneByUserId).toHaveBeenCalledWith(mockUser.id);
     });
 
     it("should return decrypted settings", async () => {
@@ -85,7 +81,7 @@ describe("UserSettingsService", () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      mockRepository.findOne.mockResolvedValue(encryptedSettings);
+      mockRepository.findOneByUserId.mockResolvedValue(encryptedSettings);
 
       const result = await service.getUserSettings(mockUser);
 
@@ -103,9 +99,8 @@ describe("UserSettingsService", () => {
       const encryptedCmc = await (service as any).encrypt(plainCmcKey);
       const encryptedOs = await (service as any).encrypt(plainOsKey);
 
-      mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.create.mockReturnValue({});
-      mockRepository.save.mockResolvedValue({
+      mockRepository.findOneByUserId.mockResolvedValue(null);
+      mockRepository.createAndSave.mockResolvedValue({
         id: 1,
         userId: 1,
         coinmarketcapApiKey: encryptedCmc,
@@ -124,12 +119,11 @@ describe("UserSettingsService", () => {
       expect(result).toBeDefined();
       expect(result.coinmarketcapApiKey).toBe(plainCmcKey);
       expect(result.openseaApiKey).toBe(plainOsKey);
-      expect(mockRepository.create).toHaveBeenCalled();
-      expect(mockRepository.save).toHaveBeenCalled();
+      expect(mockRepository.createAndSave).toHaveBeenCalled();
     });
 
     it("should throw error if settings already exist", async () => {
-      mockRepository.findOne.mockResolvedValue({ id: 1 });
+      mockRepository.findOneByUserId.mockResolvedValue({ id: 1 });
 
       const dto: CreateUserSettingsDto = {};
 
@@ -142,9 +136,8 @@ describe("UserSettingsService", () => {
       const plainKey = "test-key-32-chars-long-for-cmc";
       const encryptedKey = await (service as any).encrypt(plainKey);
 
-      mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.create.mockReturnValue({});
-      mockRepository.save.mockResolvedValue({
+      mockRepository.findOneByUserId.mockResolvedValue(null);
+      mockRepository.createAndSave.mockResolvedValue({
         id: 1,
         userId: 1,
         coinmarketcapApiKey: encryptedKey,
@@ -171,7 +164,7 @@ describe("UserSettingsService", () => {
         "existing-key-32-chars-long!!",
       );
 
-      mockRepository.findOne
+      mockRepository.findOneByUserId
         .mockResolvedValueOnce({ id: 1, userId: 1 })
         .mockResolvedValueOnce({
           id: 1,
@@ -181,7 +174,7 @@ describe("UserSettingsService", () => {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-      mockRepository.update.mockResolvedValue({ affected: 1 });
+      mockRepository.updateByUserId.mockResolvedValue({ affected: 1 });
 
       const dto: UpdateUserSettingsDto = {
         coinmarketcapApiKey: newKey,
@@ -191,16 +184,15 @@ describe("UserSettingsService", () => {
 
       expect(result).toBeDefined();
       expect(result.coinmarketcapApiKey).toBe(newKey);
-      expect(mockRepository.update).toHaveBeenCalled();
+      expect(mockRepository.updateByUserId).toHaveBeenCalled();
     });
 
     it("should create settings if not found", async () => {
       const plainKey = "new-key-32-chars-long";
       const encryptedKey = await (service as any).encrypt(plainKey);
 
-      mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.create.mockReturnValue({ userId: 1 });
-      mockRepository.save.mockResolvedValue({
+      mockRepository.findOneByUserId.mockResolvedValue(null);
+      mockRepository.createAndSave.mockResolvedValue({
         id: 1,
         userId: 1,
         coinmarketcapApiKey: encryptedKey,
@@ -212,8 +204,7 @@ describe("UserSettingsService", () => {
       const result = await service.updateSettings(mockUser, dto);
 
       expect(result).toBeDefined();
-      expect(mockRepository.create).toHaveBeenCalled();
-      expect(mockRepository.save).toHaveBeenCalled();
+      expect(mockRepository.createAndSave).toHaveBeenCalled();
     });
 
     it("should handle partial update", async () => {
@@ -223,7 +214,7 @@ describe("UserSettingsService", () => {
         "existing-key-32-chars-long!!",
       );
 
-      mockRepository.findOne
+      mockRepository.findOneByUserId
         .mockResolvedValueOnce({ id: 1, userId: 1 })
         .mockResolvedValueOnce({
           id: 1,
@@ -233,7 +224,7 @@ describe("UserSettingsService", () => {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-      mockRepository.update.mockResolvedValue({ affected: 1 });
+      mockRepository.updateByUserId.mockResolvedValue({ affected: 1 });
 
       const dto: UpdateUserSettingsDto = {
         openseaApiKey: newKey,

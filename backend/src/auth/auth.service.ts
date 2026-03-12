@@ -12,10 +12,9 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { User } from "./user.entity";
 import { UserRole } from "./user-role.enum";
+import { UserRepository } from "./user.repository";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import * as bcrypt from "bcrypt";
@@ -34,20 +33,19 @@ export class AuthService {
   /**
    * Конструктор сервиса.
    *
-   * @param usersRepository Репозиторий для работы с пользователями.
+   * @param userRepository Кастомный репозиторий для работы с пользователями.
    * @param jwtService Сервис для работы с JWT токенами.
    */
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    private jwtService: JwtService,
+    private readonly userRepository: UserRepository,
+    private readonly jwtService: JwtService,
   ) {}
 
   /**
    * Получить текущего пользователя.
    */
   async getMe(userId: number): Promise<Omit<User, "password">> {
-    const user = await this.usersRepository.findOneBy({ id: userId });
+    const user = await this.userRepository.findOneById(userId);
     if (!user) {
       throw new UnauthorizedException("User not found");
     }
@@ -67,20 +65,19 @@ export class AuthService {
    */
   async register(registerDto: RegisterDto): Promise<Omit<User, "password">> {
     // Check if user with this email already exists
-    const existingUser = await this.usersRepository.findOneBy({
-      email: registerDto.email,
-    });
+    const existingUser = await this.userRepository.findOneByEmail(
+      registerDto.email,
+    );
     if (existingUser) {
       throw new BadRequestException("User with this email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-    const user = this.usersRepository.create({
+    const savedUser = await this.userRepository.createAndSave({
       email: registerDto.email,
       password: hashedPassword,
       role: UserRole.USER,
     });
-    const savedUser = await this.usersRepository.save(user);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser;
     return result as Omit<User, "password">;
@@ -96,9 +93,7 @@ export class AuthService {
    * @throws Error с сообщением 'Invalid credentials' при неверных данных.
    */
   async login(loginDto: LoginDto): Promise<{ access_token: string }> {
-    const user = await this.usersRepository.findOneBy({
-      email: loginDto.email,
-    });
+    const user = await this.userRepository.findOneByEmail(loginDto.email);
     if (user && (await bcrypt.compare(loginDto.password, user.password))) {
       const payload = { email: user.email, sub: user.id, role: user.role };
       return {
@@ -116,10 +111,7 @@ export class AuthService {
    * @returns Promise с количеством обновлённых записей.
    */
   async resetAllUserRoles(): Promise<{ updated: number }> {
-    const result = await this.usersRepository.update(
-      {},
-      { role: UserRole.USER },
-    );
-    return { updated: result.affected || 0 };
+    const updated = await this.userRepository.updateAllRoles(UserRole.USER);
+    return { updated };
   }
 }

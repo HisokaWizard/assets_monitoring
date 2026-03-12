@@ -5,13 +5,14 @@
  * и отправки уведомлений пользователям на основе их настроек.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Injectable, Logger, forwardRef } from "@nestjs/common";
 import { NotificationSettings } from "../core/entities/notification-settings.entity";
 import { NotificationLog } from "../core/entities/notification-log.entity";
 import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
 import { EmailService } from "../email/email.service";
+import { NotificationSettingsRepository } from "../core/notification-settings.repository";
+import { NotificationLogRepository } from "../core/notification-log.repository";
+import { AssetRepository } from "../../assets/asset.repository";
 
 /**
  * Данные об отдельном срабатывании алерта по активу.
@@ -46,12 +47,9 @@ export class AlertsService {
   private readonly logger = new Logger(AlertsService.name);
 
   constructor(
-    @InjectRepository(NotificationSettings)
-    private readonly settingsRepository: Repository<NotificationSettings>,
-    @InjectRepository(NotificationLog)
-    private readonly logRepository: Repository<NotificationLog>,
-    @InjectRepository(Asset)
-    private readonly assetsRepository: Repository<Asset>,
+    private readonly settingsRepository: NotificationSettingsRepository,
+    private readonly logRepository: NotificationLogRepository,
+    private readonly assetRepository: AssetRepository,
     private readonly emailService: EmailService,
   ) {}
 
@@ -71,16 +69,7 @@ export class AlertsService {
       }`,
     );
 
-    let query = this.settingsRepository
-      .createQueryBuilder("setting")
-      .leftJoinAndSelect("setting.user", "user")
-      .where("setting.enabled = :enabled", { enabled: true });
-
-    if (userId) {
-      query = query.andWhere("setting.userId = :userId", { userId });
-    }
-
-    const settings = await query.getMany();
+    const settings = await this.settingsRepository.findEnabledWithUser(userId);
 
     for (const setting of settings) {
       try {
@@ -117,7 +106,7 @@ export class AlertsService {
     }
 
     // Получаем активы пользователя
-    let assetsQuery = this.assetsRepository
+    let assetsQuery = this.assetRepository
       .createQueryBuilder("asset")
       .where("asset.userId = :userId", { userId: setting.userId });
 
@@ -170,7 +159,7 @@ export class AlertsService {
     if (alertsTriggered.length > 0) {
       await this.sendAlertEmail(setting, alertsTriggered);
       setting.lastNotified = now;
-      await this.settingsRepository.save(setting);
+      await this.settingsRepository.saveSettings(setting);
     }
   }
 
@@ -212,7 +201,7 @@ export class AlertsService {
     );
 
     // Логируем отправку
-    await this.logRepository.save({
+    await this.logRepository.saveLog({
       userId: setting.userId,
       type: "alert",
       subject,

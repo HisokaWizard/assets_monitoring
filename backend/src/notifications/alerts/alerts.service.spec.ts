@@ -5,19 +5,20 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import { AlertsService } from "./alerts.service";
 import { NotificationSettings } from "../core/entities/notification-settings.entity";
 import { NotificationLog } from "../core/entities/notification-log.entity";
 import { Asset, CryptoAsset, NFTAsset } from "../../assets/asset.entity";
 import { EmailService } from "../email/email.service";
+import { NotificationSettingsRepository } from "../core/notification-settings.repository";
+import { NotificationLogRepository } from "../core/notification-log.repository";
+import { AssetRepository } from "../../assets/asset.repository";
 
 describe("AlertsService", () => {
   let service: AlertsService;
-  let settingsRepository: jest.Mocked<Repository<NotificationSettings>>;
-  let logRepository: jest.Mocked<Repository<NotificationLog>>;
-  let assetsRepository: jest.Mocked<Repository<Asset>>;
+  let settingsRepository: jest.Mocked<NotificationSettingsRepository>;
+  let logRepository: jest.Mocked<NotificationLogRepository>;
+  let assetsRepository: jest.Mocked<AssetRepository>;
   let emailService: jest.Mocked<EmailService>;
 
   beforeEach(async () => {
@@ -44,28 +45,36 @@ describe("AlertsService", () => {
       sendEmail: jest.fn(),
     };
 
+    const mockSettingsRepository = {
+      findEnabledWithUser: jest.fn(),
+      findByUserId: jest.fn(),
+      saveSettings: jest.fn(),
+    };
+
+    const mockLogRepository = {
+      saveLog: jest.fn(),
+    };
+
+    const mockAssetRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(mockAssetsQueryBuilder),
+      find: jest.fn(),
+      save: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AlertsService,
         {
-          provide: getRepositoryToken(NotificationSettings),
-          useValue: {
-            ...mockRepository,
-            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
-          },
+          provide: NotificationSettingsRepository,
+          useValue: mockSettingsRepository,
         },
         {
-          provide: getRepositoryToken(NotificationLog),
-          useValue: mockRepository,
+          provide: NotificationLogRepository,
+          useValue: mockLogRepository,
         },
         {
-          provide: getRepositoryToken(Asset),
-          useValue: {
-            ...mockRepository,
-            createQueryBuilder: jest
-              .fn()
-              .mockReturnValue(mockAssetsQueryBuilder),
-          },
+          provide: AssetRepository,
+          useValue: mockAssetRepository,
         },
         {
           provide: EmailService,
@@ -75,9 +84,9 @@ describe("AlertsService", () => {
     }).compile();
 
     service = module.get<AlertsService>(AlertsService);
-    settingsRepository = module.get(getRepositoryToken(NotificationSettings));
-    logRepository = module.get(getRepositoryToken(NotificationLog));
-    assetsRepository = module.get(getRepositoryToken(Asset));
+    settingsRepository = module.get(NotificationSettingsRepository);
+    logRepository = module.get(NotificationLogRepository);
+    assetsRepository = module.get(AssetRepository);
     emailService = module.get(EmailService);
   });
 
@@ -98,8 +107,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssetsQueryBuilder = assetsRepository.createQueryBuilder();
       (mockAssetsQueryBuilder.getMany as jest.Mock).mockResolvedValue([]);
@@ -108,12 +118,8 @@ describe("AlertsService", () => {
       await service.checkAlertsAfterUpdate();
 
       // Assert
-      expect(settingsRepository.createQueryBuilder).toHaveBeenCalledWith(
-        "setting",
-      );
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        "setting.enabled = :enabled",
-        { enabled: true },
+      expect(settingsRepository.findEnabledWithUser).toHaveBeenCalledWith(
+        undefined,
       );
     });
 
@@ -122,16 +128,16 @@ describe("AlertsService", () => {
       const userId = 1;
       const mockSettings: NotificationSettings[] = [];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate(userId);
 
       // Assert
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        "setting.userId = :userId",
-        { userId },
+      expect(settingsRepository.findEnabledWithUser).toHaveBeenCalledWith(
+        userId,
       );
     });
 
@@ -151,8 +157,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -171,16 +178,18 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
 
       // Assert
       expect(emailService.sendEmail).toHaveBeenCalled();
-      expect(logRepository.save).toHaveBeenCalled();
-      expect(settingsRepository.save).toHaveBeenCalled();
+      expect(logRepository.saveLog).toHaveBeenCalled();
+      expect(settingsRepository.saveSettings).toHaveBeenCalled();
     });
 
     it("should not trigger alert when interval has not passed", async () => {
@@ -201,8 +210,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -227,8 +237,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssetsQueryBuilder = assetsRepository.createQueryBuilder();
       (mockAssetsQueryBuilder.getMany as jest.Mock).mockRejectedValue(
@@ -238,7 +249,7 @@ describe("AlertsService", () => {
       // Act & Assert
       await service.checkAlertsAfterUpdate();
 
-      expect(settingsRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(settingsRepository.findEnabledWithUser).toHaveBeenCalled();
     });
   });
 
@@ -261,8 +272,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -282,8 +294,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -313,8 +327,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -334,8 +349,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -366,8 +383,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -387,8 +405,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -415,8 +435,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -436,8 +457,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -466,8 +489,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -487,8 +511,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -515,8 +541,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new NFTAsset(), {
@@ -537,8 +564,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();
@@ -569,8 +598,9 @@ describe("AlertsService", () => {
         } as NotificationSettings,
       ];
 
-      const mockQueryBuilder = settingsRepository.createQueryBuilder();
-      (mockQueryBuilder.getMany as jest.Mock).mockResolvedValue(mockSettings);
+      (settingsRepository.findEnabledWithUser as jest.Mock).mockResolvedValue(
+        mockSettings,
+      );
 
       const mockAssets = [
         Object.assign(new CryptoAsset(), {
@@ -590,8 +620,10 @@ describe("AlertsService", () => {
       );
 
       emailService.sendEmail.mockResolvedValue(true);
-      logRepository.save.mockResolvedValue({} as any);
-      settingsRepository.save.mockResolvedValue({} as any);
+      (logRepository.saveLog as jest.Mock).mockResolvedValue({} as any);
+      (settingsRepository.saveSettings as jest.Mock).mockResolvedValue(
+        {} as any,
+      );
 
       // Act
       await service.checkAlertsAfterUpdate();

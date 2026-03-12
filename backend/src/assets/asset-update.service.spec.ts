@@ -1,49 +1,52 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AssetUpdateService } from './asset-update.service';
-import { HttpService } from '@nestjs/axios';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Asset, CryptoAsset, NFTAsset } from './asset.entity';
-import { HistoricalPrice } from './historical-price.entity';
-import { User } from '../auth/user.entity';
-import { NotificationSettings } from '../notifications/core/entities/notification-settings.entity';
-import { UserSettingsService } from '../user-settings/user-settings.service';
-import { of } from 'rxjs';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AssetUpdateService } from "./asset-update.service";
+import { HttpService } from "@nestjs/axios";
+import { Repository } from "typeorm";
+import { Asset, CryptoAsset, NFTAsset } from "./asset.entity";
+import { HistoricalPrice } from "./historical-price.entity";
+import { AssetRepository } from "./asset.repository";
+import { HistoricalPriceRepository } from "./historical-price.repository";
+import { UserRepository } from "../auth/user.repository";
+import { User } from "../auth/user.entity";
+import { NotificationSettings } from "../notifications/core/entities/notification-settings.entity";
+import { NotificationSettingsRepository } from "../notifications/core/notification-settings.repository";
+import { UserSettingsService } from "../user-settings/user-settings.service";
+import { of } from "rxjs";
 
-describe('AssetUpdateService', () => {
+describe("AssetUpdateService", () => {
   let service: AssetUpdateService;
   let httpService: jest.Mocked<HttpService>;
-  let assetsRepository: jest.Mocked<Repository<Asset>>;
-  let historicalPriceRepository: jest.Mocked<Repository<HistoricalPrice>>;
-  let userRepository: jest.Mocked<Repository<User>>;
-  let notificationSettingsRepository: jest.Mocked<Repository<NotificationSettings>>;
+  let assetRepository: jest.Mocked<AssetRepository>;
+  let historicalPriceRepository: jest.Mocked<HistoricalPriceRepository>;
+  let userRepository: jest.Mocked<UserRepository>;
+  let notificationSettingsRepository: jest.Mocked<NotificationSettingsRepository>;
 
   const mockCryptoAsset = Object.create(CryptoAsset.prototype, {
     id: { value: 1, writable: true },
-    type: { value: 'crypto', writable: true },
-    symbol: { value: 'BTC', writable: true },
+    type: { value: "crypto", writable: true },
+    symbol: { value: "BTC", writable: true },
     userId: { value: 1, writable: true },
     currentPrice: { value: 50000, writable: true },
     middlePrice: { value: 48000, writable: true },
     dailyPrice: { value: 49000, writable: true },
-    dailyTimestamp: { value: new Date('2024-01-01'), writable: true },
+    dailyTimestamp: { value: new Date("2024-01-01"), writable: true },
   }) as CryptoAsset;
 
   const mockNFTAsset = Object.create(NFTAsset.prototype, {
     id: { value: 2, writable: true },
-    type: { value: 'nft', writable: true },
-    collectionName: { value: 'BAYC', writable: true },
+    type: { value: "nft", writable: true },
+    collectionName: { value: "BAYC", writable: true },
     userId: { value: 1, writable: true },
     floorPrice: { value: 15, writable: true },
     floorPriceUsd: { value: 0, writable: true },
     middlePrice: { value: 10, writable: true },
     middlePriceUsd: { value: 0, writable: true },
-    nativeToken: { value: 'ETH', writable: true },
+    nativeToken: { value: "ETH", writable: true },
   }) as NFTAsset;
 
   const mockUser = {
     id: 1,
-    lastUpdated: new Date('2024-01-01'),
+    lastUpdated: new Date("2024-01-01"),
   } as User;
 
   const mockNotificationSettings = {
@@ -65,28 +68,27 @@ describe('AssetUpdateService', () => {
           },
         },
         {
-          provide: getRepositoryToken(Asset),
+          provide: AssetRepository,
           useValue: {
-            find: jest.fn(),
+            findByUserId: jest.fn(),
+            saveAsset: jest.fn(),
+          },
+        },
+        {
+          provide: HistoricalPriceRepository,
+          useValue: {
+            savePrice: jest.fn(),
+            findByAssetIdDesc: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: UserRepository,
+          useValue: {
             save: jest.fn(),
           },
         },
         {
-          provide: getRepositoryToken(HistoricalPrice),
-          useValue: {
-            find: jest.fn().mockResolvedValue([]),
-            create: jest.fn(),
-            save: jest.fn(),
-          },
-        },
-        {
-          provide: getRepositoryToken(User),
-          useValue: {
-            save: jest.fn(),
-          },
-        },
-        {
-          provide: getRepositoryToken(NotificationSettings),
+          provide: NotificationSettingsRepository,
           useValue: {
             find: jest.fn(),
           },
@@ -95,8 +97,8 @@ describe('AssetUpdateService', () => {
           provide: UserSettingsService,
           useValue: {
             getUserSettings: jest.fn().mockResolvedValue({
-              coinmarketcapApiKey: 'test_key',
-              openseaApiKey: 'test_key',
+              coinmarketcapApiKey: "test_key",
+              openseaApiKey: "test_key",
             }),
           },
         },
@@ -105,30 +107,32 @@ describe('AssetUpdateService', () => {
 
     service = module.get<AssetUpdateService>(AssetUpdateService);
     httpService = module.get(HttpService);
-    assetsRepository = module.get(getRepositoryToken(Asset));
-    historicalPriceRepository = module.get(getRepositoryToken(HistoricalPrice));
-    userRepository = module.get(getRepositoryToken(User));
-    notificationSettingsRepository = module.get(getRepositoryToken(NotificationSettings));
+    assetRepository = module.get(AssetRepository);
+    historicalPriceRepository = module.get(HistoricalPriceRepository);
+    userRepository = module.get(UserRepository);
+    notificationSettingsRepository = module.get(NotificationSettingsRepository);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('updateAssetsForUsers', () => {
-    it('should get settings with relations', async () => {
-      notificationSettingsRepository.find.mockResolvedValue([mockNotificationSettings]);
-      assetsRepository.find.mockResolvedValue([]);
+  describe("updateAssetsForUsers", () => {
+    it("should get settings with relations", async () => {
+      notificationSettingsRepository.find.mockResolvedValue([
+        mockNotificationSettings,
+      ]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
       expect(notificationSettingsRepository.find).toHaveBeenCalledWith({
         where: { enabled: true },
-        relations: ['user'],
+        relations: ["user"],
       });
     });
 
-    it('should filter by enabled', async () => {
+    it("should filter by enabled", async () => {
       const disabledSettings = { ...mockNotificationSettings, enabled: false };
       notificationSettingsRepository.find.mockResolvedValue([disabledSettings]);
 
@@ -137,78 +141,85 @@ describe('AssetUpdateService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should group settings by userId', async () => {
-      const user1 = { id: 1, lastUpdated: new Date('2024-01-01') } as User;
-      const user2 = { id: 2, lastUpdated: new Date('2024-01-01') } as User;
+    it("should group settings by userId", async () => {
+      const user1 = { id: 1, lastUpdated: new Date("2024-01-01") } as User;
+      const user2 = { id: 2, lastUpdated: new Date("2024-01-01") } as User;
       const settings1 = { ...mockNotificationSettings, user: user1 };
       const settings2 = { ...mockNotificationSettings, userId: 2, user: user2 };
-      notificationSettingsRepository.find.mockResolvedValue([settings1, settings2]);
-      assetsRepository.find.mockResolvedValue([]);
+      notificationSettingsRepository.find.mockResolvedValue([
+        settings1,
+        settings2,
+      ]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
-      expect(assetsRepository.find).toHaveBeenCalledTimes(2);
+      expect(assetRepository.findByUserId).toHaveBeenCalledTimes(2);
     });
 
-    it('should check update interval', async () => {
+    it("should check update interval", async () => {
       const oldDate = new Date();
       oldDate.setHours(oldDate.getHours() - 5);
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
-      expect(assetsRepository.find).toHaveBeenCalled();
+      expect(assetRepository.findByUserId).toHaveBeenCalled();
     });
 
-    it('should skip update if interval not passed', async () => {
+    it("should skip update if interval not passed", async () => {
       const recentDate = new Date();
       const userWithRecentUpdate = { ...mockUser, lastUpdated: recentDate };
-      const settings = { ...mockNotificationSettings, user: userWithRecentUpdate };
+      const settings = {
+        ...mockNotificationSettings,
+        user: userWithRecentUpdate,
+      };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
 
       await service.updateAssetsForUsers();
 
-      expect(assetsRepository.find).not.toHaveBeenCalled();
+      expect(assetRepository.findByUserId).not.toHaveBeenCalled();
     });
 
-    it('should update assets when shouldUpdate is true', async () => {
-      const oldDate = new Date('2024-01-01');
+    it("should update assets when shouldUpdate is true", async () => {
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
-      httpService.get.mockReturnValue(of({
-        data: {
+      httpService.get.mockReturnValue(
+        of({
           data: {
-            BTC: {
-              quote: {
-                USD: { price: 52000 }
-              }
-            }
-          }
-        }
-      }) as any);
-
+            data: {
+              BTC: {
+                quote: {
+                  USD: { price: 52000 },
+                },
+              },
+            },
+          },
+        }) as any,
+      );
 
       const result = await service.updateAssetsForUsers();
 
       expect(result).toContain(1);
     });
 
-    it('should update user.lastUpdated', async () => {
-      const oldDate = new Date('2024-01-01');
+    it("should update user.lastUpdated", async () => {
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
@@ -217,22 +228,26 @@ describe('AssetUpdateService', () => {
       expect(savedUser.lastUpdated).toBeInstanceOf(Date);
     });
 
-    it('should return array of updated asset ids', async () => {
-      const oldDate = new Date('2024-01-01');
+    it("should return array of updated asset ids", async () => {
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset, mockNFTAsset]);
+      assetRepository.findByUserId.mockResolvedValue([
+        mockCryptoAsset,
+        mockNFTAsset,
+      ]);
 
-      httpService.get.mockReturnValue(of({
-        data: {
+      httpService.get.mockReturnValue(
+        of({
           data: {
-            BTC: { quote: { USD: { price: 52000 } } }
-          }
-        }
-      }) as any);
-
+            data: {
+              BTC: { quote: { USD: { price: 52000 } } },
+            },
+          },
+        }) as any,
+      );
 
       const result = await service.updateAssetsForUsers();
 
@@ -240,213 +255,250 @@ describe('AssetUpdateService', () => {
     });
   });
 
-  describe('API calls', () => {
-    it('should call CoinMarketCap API with correct URL', async () => {
-
-      httpService.get.mockReturnValue(of({
-        data: {
+  describe("API calls", () => {
+    it("should call CoinMarketCap API with correct URL", async () => {
+      httpService.get.mockReturnValue(
+        of({
           data: {
-            BTC: { quote: { USD: { price: 52000 } } }
-          }
-        }
-      }) as any);
+            data: {
+              BTC: { quote: { USD: { price: 52000 } } },
+            },
+          },
+        }) as any,
+      );
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await service.updateAssetsForUsers();
 
       expect(httpService.get).toHaveBeenCalledWith(
-        expect.stringContaining('coinmarketcap.com'),
+        expect.stringContaining("coinmarketcap.com"),
         expect.objectContaining({
-          headers: { 'X-CMC_PRO_API_KEY': 'test_key' }
-        })
+          headers: { "X-CMC_PRO_API_KEY": "test_key" },
+        }),
       );
     });
 
-    it('should call OpenSea API with correct URL', async () => {
-
+    it("should call OpenSea API with correct URL", async () => {
       // First call: OpenSea, second call: CoinMarketCap for ETH price
       httpService.get
-        .mockReturnValueOnce(of({
-          data: { total: { floor_price: 20, floor_price_symbol: 'ETH' } }
-        }) as any)
-        .mockReturnValueOnce(of({
-          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
-        }) as any);
+        .mockReturnValueOnce(
+          of({
+            data: { total: { floor_price: 20, floor_price_symbol: "ETH" } },
+          }) as any,
+        )
+        .mockReturnValueOnce(
+          of({
+            data: { data: { ETH: { quote: { USD: { price: 2800 } } } } },
+          }) as any,
+        );
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockNFTAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockNFTAsset]);
 
       await service.updateAssetsForUsers();
 
       expect(httpService.get).toHaveBeenCalledWith(
-        expect.stringContaining('opensea.io'),
+        expect.stringContaining("opensea.io"),
         expect.objectContaining({
-          headers: { 'X-API-KEY': 'test_key' }
-        })
+          headers: { "X-API-KEY": "test_key" },
+        }),
       );
     });
 
-    it('should update asset price from API', async () => {
-
-      httpService.get.mockReturnValue(of({
-        data: {
+    it("should update asset price from API", async () => {
+      httpService.get.mockReturnValue(
+        of({
           data: {
-            BTC: { quote: { USD: { price: 55000 } } }
-          }
-        }
-      }) as any);
+            data: {
+              BTC: { quote: { USD: { price: 55000 } } },
+            },
+          },
+        }) as any,
+      );
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await service.updateAssetsForUsers();
 
-      expect(assetsRepository.save).toHaveBeenCalled();
+      expect(assetRepository.saveAsset).toHaveBeenCalled();
     });
 
-    it('should save historical price', async () => {
-
-      httpService.get.mockReturnValue(of({
-        data: {
+    it("should save historical price", async () => {
+      httpService.get.mockReturnValue(
+        of({
           data: {
-            BTC: { quote: { USD: { price: 52000 } } }
-          }
-        }
-      }) as any);
+            data: {
+              BTC: { quote: { USD: { price: 52000 } } },
+            },
+          },
+        }) as any,
+      );
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await service.updateAssetsForUsers();
 
-      expect(historicalPriceRepository.save).toHaveBeenCalled();
+      expect(historicalPriceRepository.savePrice).toHaveBeenCalled();
     });
   });
 
-  describe('NFT specific', () => {
-    it('should parse floor_price from OpenSea total field and calculate floorPriceUsd', async () => {
+  describe("NFT specific", () => {
+    it("should parse floor_price from OpenSea total field and calculate floorPriceUsd", async () => {
       // First call: OpenSea (floor_price in ETH), second call: CoinMarketCap (ETH/USD price)
       httpService.get
-        .mockReturnValueOnce(of({
-          data: { total: { floor_price: 2.0, floor_price_symbol: 'ETH' } }
-        }) as any)
-        .mockReturnValueOnce(of({
-          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
-        }) as any);
+        .mockReturnValueOnce(
+          of({
+            data: { total: { floor_price: 2.0, floor_price_symbol: "ETH" } },
+          }) as any,
+        )
+        .mockReturnValueOnce(
+          of({
+            data: { data: { ETH: { quote: { USD: { price: 2800 } } } } },
+          }) as any,
+        );
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockNFTAsset]);
-      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
+      assetRepository.findByUserId.mockResolvedValue([mockNFTAsset]);
+      assetRepository.saveAsset.mockImplementation((asset: Asset) =>
+        Promise.resolve(asset as Asset),
+      );
 
       await service.updateAssetsForUsers();
 
-      expect(assetsRepository.save).toHaveBeenCalled();
-      const savedAsset = assetsRepository.save.mock.calls[0][0] as NFTAsset;
+      expect(assetRepository.saveAsset).toHaveBeenCalled();
+      const savedAsset = assetRepository.saveAsset.mock.calls[0][0] as NFTAsset;
       expect(savedAsset.floorPrice).toBe(2.0);
       // floorPriceUsd = 2.0 * 2800 = 5600
       expect(savedAsset.floorPriceUsd).toBeCloseTo(5600, 0);
     });
 
-    it('should update NFT asset with floorPrice and calculated floorPriceUsd', async () => {
+    it("should update NFT asset with floorPrice and calculated floorPriceUsd", async () => {
       // First call: OpenSea, second call: CoinMarketCap for ETH
       httpService.get
-        .mockReturnValueOnce(of({
-          data: { total: { floor_price: 3.5, floor_price_symbol: 'ETH' } }
-        }) as any)
-        .mockReturnValueOnce(of({
-          data: { data: { ETH: { quote: { USD: { price: 2800 } } } } }
-        }) as any);
+        .mockReturnValueOnce(
+          of({
+            data: { total: { floor_price: 3.5, floor_price_symbol: "ETH" } },
+          }) as any,
+        )
+        .mockReturnValueOnce(
+          of({
+            data: { data: { ETH: { quote: { USD: { price: 2800 } } } } },
+          }) as any,
+        );
 
-      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
-      historicalPriceRepository.create.mockReturnValue({} as any);
-      historicalPriceRepository.save.mockResolvedValue({} as any);
+      assetRepository.saveAsset.mockImplementation((asset: Asset) =>
+        Promise.resolve(asset as Asset),
+      );
+      historicalPriceRepository.savePrice.mockResolvedValue({} as any);
 
-      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
+      await service.updateNFTAsset(
+        mockNFTAsset,
+        "test_opensea_key",
+        "test_cmc_key",
+      );
 
       expect(mockNFTAsset.floorPrice).toBe(3.5);
       // floorPriceUsd = 3.5 * 2800 = 9800
       expect(mockNFTAsset.floorPriceUsd).toBeCloseTo(9800, 0);
     });
 
-    it('should update nativeToken from OpenSea floorPriceSymbol', async () => {
+    it("should update nativeToken from OpenSea floorPriceSymbol", async () => {
       httpService.get
-        .mockReturnValueOnce(of({
-          data: { total: { floor_price: 1.0, floor_price_symbol: 'SOL' } }
-        }) as any)
-        .mockReturnValueOnce(of({
-          data: { data: { SOL: { quote: { USD: { price: 150 } } } } }
-        }) as any);
+        .mockReturnValueOnce(
+          of({
+            data: { total: { floor_price: 1.0, floor_price_symbol: "SOL" } },
+          }) as any,
+        )
+        .mockReturnValueOnce(
+          of({
+            data: { data: { SOL: { quote: { USD: { price: 150 } } } } },
+          }) as any,
+        );
 
-      assetsRepository.save.mockImplementation((asset) => Promise.resolve(asset as Asset));
-      historicalPriceRepository.create.mockReturnValue({} as any);
-      historicalPriceRepository.save.mockResolvedValue({} as any);
+      assetRepository.saveAsset.mockImplementation((asset: Asset) =>
+        Promise.resolve(asset as Asset),
+      );
+      historicalPriceRepository.savePrice.mockResolvedValue({} as any);
 
-      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
+      await service.updateNFTAsset(
+        mockNFTAsset,
+        "test_opensea_key",
+        "test_cmc_key",
+      );
 
-      expect(mockNFTAsset.nativeToken).toBe('SOL');
+      expect(mockNFTAsset.nativeToken).toBe("SOL");
     });
 
-    it('should not update NFT asset when OpenSea returns no total data', async () => {
-      httpService.get.mockReturnValue(of({
-        data: { total: null }
-      }) as any);
+    it("should not update NFT asset when OpenSea returns no total data", async () => {
+      httpService.get.mockReturnValue(
+        of({
+          data: { total: null },
+        }) as any,
+      );
 
-      assetsRepository.save.mockClear();
+      assetRepository.saveAsset.mockClear();
 
-      await service.updateNFTAsset(mockNFTAsset, 'test_opensea_key', 'test_cmc_key');
+      await service.updateNFTAsset(
+        mockNFTAsset,
+        "test_opensea_key",
+        "test_cmc_key",
+      );
 
-      expect(assetsRepository.save).not.toHaveBeenCalled();
+      expect(assetRepository.saveAsset).not.toHaveBeenCalled();
     });
   });
 
-  describe('error handling', () => {
-    it('should log error on API failure', async () => {
-      const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  describe("error handling", () => {
+    it("should log error on API failure", async () => {
+      const loggerSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
       httpService.get.mockImplementation(() => {
-        throw new Error('API Error');
+        throw new Error("API Error");
       });
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await service.updateAssetsForUsers();
 
       loggerSpy.mockRestore();
     });
-
   });
 
   // ─── sub_task_2: TDD тесты updateIntervalHours + thresholdPercent ─────────
 
-  describe('updateIntervalHours usage in shouldUpdate logic', () => {
-    it('should NOT update assets when updateIntervalHours has not passed (even if intervalHours has)', async () => {
+  describe("updateIntervalHours usage in shouldUpdate logic", () => {
+    it("should NOT update assets when updateIntervalHours has not passed (even if intervalHours has)", async () => {
       // updateIntervalHours=4, intervalHours=2
       // lastUpdated = 3 часа назад → 3ч < 4ч updateIntervalHours → НЕ обновляем
       const threeHoursAgo = new Date();
@@ -455,22 +507,22 @@ describe('AssetUpdateService', () => {
 
       const settings = {
         ...mockNotificationSettings,
-        intervalHours: 2,       // кулдаун алертов — прошёл (3ч > 2ч)
+        intervalHours: 2, // кулдаун алертов — прошёл (3ч > 2ч)
         updateIntervalHours: 4, // интервал обновления — НЕ прошёл (3ч < 4ч)
         user,
       } as NotificationSettings;
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
       // Активы НЕ должны обновляться — updateIntervalHours не прошёл
-      // assetsRepository.find не должен быть вызван (или вызван 0 раз)
-      expect(assetsRepository.find).not.toHaveBeenCalled();
+      // assetRepository.findByUserId не должен быть вызван (или вызван 0 раз)
+      expect(assetRepository.findByUserId).not.toHaveBeenCalled();
     });
 
-    it('should update assets when updateIntervalHours has passed', async () => {
+    it("should update assets when updateIntervalHours has passed", async () => {
       // updateIntervalHours=4, lastUpdated = 5 часов назад → обновляем
       const fiveHoursAgo = new Date();
       fiveHoursAgo.setHours(fiveHoursAgo.getHours() - 5);
@@ -484,15 +536,15 @@ describe('AssetUpdateService', () => {
       } as NotificationSettings;
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
       // Активы должны обновляться
-      expect(assetsRepository.find).toHaveBeenCalled();
+      expect(assetRepository.findByUserId).toHaveBeenCalled();
     });
 
-    it('should use max updateIntervalHours across multiple settings for same user', async () => {
+    it("should use max updateIntervalHours across multiple settings for same user", async () => {
       // Если у пользователя 2 настройки: updateIntervalHours=2 и updateIntervalHours=8
       // берём max=8, lastUpdated=5ч назад → 5ч < 8ч → НЕ обновляем
       const fiveHoursAgo = new Date();
@@ -512,59 +564,62 @@ describe('AssetUpdateService', () => {
         user,
       } as NotificationSettings;
 
-      notificationSettingsRepository.find.mockResolvedValue([settings1, settings2]);
-      assetsRepository.find.mockResolvedValue([]);
+      notificationSettingsRepository.find.mockResolvedValue([
+        settings1,
+        settings2,
+      ]);
+      assetRepository.findByUserId.mockResolvedValue([]);
 
       await service.updateAssetsForUsers();
 
       // max(2,8)=8, прошло 5ч < 8ч → НЕ обновляем
-      expect(assetsRepository.find).not.toHaveBeenCalled();
+      expect(assetRepository.findByUserId).not.toHaveBeenCalled();
     });
   });
 
-  describe('thresholdPercent in alerts', () => {
-    it('should continue with other assets on error', async () => {
-
+  describe("thresholdPercent in alerts", () => {
+    it("should continue with other assets on error", async () => {
       httpService.get.mockImplementation(() => {
-        throw new Error('API Error');
+        throw new Error("API Error");
       });
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset, mockNFTAsset]);
+      assetRepository.findByUserId.mockResolvedValue([
+        mockCryptoAsset,
+        mockNFTAsset,
+      ]);
 
       const result = await service.updateAssetsForUsers();
 
       expect(result.length).toBeLessThanOrEqual(2);
     });
 
-    it('should handle missing API key gracefully', async () => {
-
-      const oldDate = new Date('2024-01-01');
+    it("should handle missing API key gracefully", async () => {
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await expect(service.updateAssetsForUsers()).resolves.not.toThrow();
     });
 
-    it('should not crash on error', async () => {
-
+    it("should not crash on error", async () => {
       httpService.get.mockImplementation(() => {
-        throw new Error('Network error');
+        throw new Error("Network error");
       });
 
-      const oldDate = new Date('2024-01-01');
+      const oldDate = new Date("2024-01-01");
       const userWithOldUpdate = { ...mockUser, lastUpdated: oldDate };
       const settings = { ...mockNotificationSettings, user: userWithOldUpdate };
 
       notificationSettingsRepository.find.mockResolvedValue([settings]);
-      assetsRepository.find.mockResolvedValue([mockCryptoAsset]);
+      assetRepository.findByUserId.mockResolvedValue([mockCryptoAsset]);
 
       await expect(service.updateAssetsForUsers()).resolves.not.toThrow();
     });
